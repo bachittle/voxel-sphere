@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sphere Depth — Onion Cutaway</title>
+<style>
+  html,body{margin:0;height:100%;background:#07080d;overflow:hidden;
+    font-family:ui-monospace,Menlo,monospace;color:#cdd6f4;}
+  canvas#gl{display:block;width:100vw;height:100vh;cursor:grab;}
+  canvas#gl:active{cursor:grabbing;}
+  #ui{position:fixed;top:16px;left:16px;background:rgba(18,20,28,.82);
+    padding:14px 16px;border-radius:12px;font-size:13px;line-height:1.7;
+    user-select:none;width:240px;}
+  .btn{display:inline-block;margin:2px 4px 2px 0;padding:4px 10px;border-radius:7px;
+    background:#1e2030;color:#bac2de;cursor:pointer;font-size:12px;}
+  .btn.on{background:#89b4fa;color:#11111b;font-weight:bold;}
+  #score{font-size:26px;color:#f9e2af;margin:8px 0 2px;}
+  #score small{font-size:12px;color:#7f849c;}
+  label.cut{display:block;margin-top:8px;font-size:12px;color:#bac2de;}
+  .leg{height:10px;border-radius:5px;margin-top:8px;
+    background:linear-gradient(90deg,#3b82f6,#22d3a8,#fde047,#f97316,#ef4444);}
+  .legrow{display:flex;justify-content:space-between;font-size:10px;color:#7f849c;}
+  small.hint{color:#7f849c;}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="picker"></div>
+  <div id="score">—</div>
+  <div>nearest-neighbor max / min · <span id="pts">0</span> cells</div>
+  <label class="cut"><input id="cut" type="checkbox" checked> cutaway (see inside)</label>
+  <div class="leg"></div>
+  <div class="legrow"><span>tight</span><span>even/cubic</span><span>stretched</span></div>
+  <small class="hint">drag to rotate · scroll to zoom · 🔴 lava core</small>
+</div>
+<canvas id="gl"></canvas>
+<script>
+function perspective(f,a,n,fr){const t=1/Math.tan(f/2),nf=1/(n-fr);
+  return[t/a,0,0,0,0,t,0,0,0,0,(fr+n)*nf,-1,0,0,2*fr*n*nf,0];}
+function mul(a,b){const o=new Array(16);for(let r=0;r<4;r++)for(let c=0;c<4;c++)
+  o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o;}
+function rotX(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];}
+function rotY(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];}
+function translate(x,y,z){return[1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1];}
+
+const PHI=(1+Math.sqrt(5))/2;
+const CORE=0.18, TOP_M=560;
+const surfSpacing=Math.sqrt(4*Math.PI/TOP_M);
+const SHELLS=Math.max(2,Math.round((1-CORE)/surfSpacing));
+const DR=(1-CORE)/SHELLS;
+
+function fibShell(m,r){const pts=[],ga=2*Math.PI*(1-1/PHI);
+  for(let i=0;i<m;i++){const y=1-(i+0.5)/m*2,rr=Math.sqrt(Math.max(0,1-y*y)),t=i*ga;
+    pts.push([r*rr*Math.cos(t),r*y,r*rr*Math.sin(t)]);}
+  return pts;}
+function build(mode){const all=[];
+  for(let s=0;s<SHELLS;s++){const r=CORE+(s+0.5)*DR;
+    const m=mode==='naive'?TOP_M:Math.max(12,Math.round(TOP_M*(r*r)));
+    for(const p of fibShell(m,r))all.push(p);}
+  return all;}
+function nnSpacing(pts){const n=pts.length,out=new Float32Array(n);
+  for(let i=0;i<n;i++){let best=Infinity;
+    for(let j=0;j<n;j++){if(j===i)continue;
+      const dx=pts[i][0]-pts[j][0],dy=pts[i][1]-pts[j][1],dz=pts[i][2]-pts[j][2];
+      const d=dx*dx+dy*dy+dz*dz;if(d<best)best=d;}
+    out[i]=Math.sqrt(best);}
+  return out;}
+function ramp(t){const st=[[0.23,0.51,0.96],[0.13,0.83,0.66],[0.99,0.88,0.28],[0.98,0.45,0.09],[0.94,0.27,0.27]];
+  const x=Math.max(0,Math.min(1,t))*(st.length-1),i=Math.floor(x),fr=x-i;
+  const a=st[i],b=st[Math.min(i+1,st.length-1)];
+  return[a[0]+(b[0]-a[0])*fr,a[1]+(b[1]-a[1])*fr,a[2]+(b[2]-a[2])*fr];}
+
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl');
+const vs=`attribute vec3 pos;attribute vec3 col;uniform mat4 uMVP;uniform float uSize;
+  varying vec3 vc;void main(){gl_Position=uMVP*vec4(pos,1.0);gl_PointSize=uSize/gl_Position.w;vc=col;}`;
+const fs=`precision mediump float;varying vec3 vc;void main(){
+  vec2 d=gl_PointCoord-vec2(0.5);if(dot(d,d)>0.25)discard;gl_FragColor=vec4(vc,1.0);}`;
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(o);return o;}
+const prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);gl.useProgram(prog);
+const aPos=gl.getAttribLocation(prog,'pos'),aCol=gl.getAttribLocation(prog,'col');
+const uMVP=gl.getUniformLocation(prog,'uMVP'),uSize=gl.getUniformLocation(prog,'uSize');
+const posBuf=gl.createBuffer(),colBuf=gl.createBuffer();
+let count=0;
+
+// lava core (small dense red blob at center)
+function coreBlob(){const pts=[],m=120,ga=2*Math.PI*(1-1/PHI);
+  for(let i=0;i<m;i++){const y=1-(i+0.5)/m*2,rr=Math.sqrt(Math.max(0,1-y*y)),t=i*ga;
+    pts.push([CORE*0.7*rr*Math.cos(t),CORE*0.7*y,CORE*0.7*rr*Math.sin(t)]);}
+  return pts;}
+
+let curMode='onion';
+function load(mode){
+  curMode=mode;
+  const pts=build(mode), sp=nnSpacing(pts), n=pts.length;
+  let mn=Infinity,mx=-Infinity;for(const s of sp){if(s<mn)mn=s;if(s>mx)mx=s;}
+  const core=coreBlob();
+  const total=n+core.length;
+  const P=new Float32Array(total*3),C=new Float32Array(total*3);
+  for(let i=0;i<n;i++){P[i*3]=pts[i][0];P[i*3+1]=pts[i][1];P[i*3+2]=pts[i][2];
+    const c=ramp((sp[i]-mn)/(mx-mn));C[i*3]=c[0];C[i*3+1]=c[1];C[i*3+2]=c[2];}
+  for(let i=0;i<core.length;i++){const k=n+i;P[k*3]=core[i][0];P[k*3+1]=core[i][1];P[k*3+2]=core[i][2];
+    C[k*3]=1.0;C[k*3+1]=0.25;C[k*3+2]=0.12;}
+  gl.bindBuffer(gl.ARRAY_BUFFER,posBuf);gl.bufferData(gl.ARRAY_BUFFER,P,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,colBuf);gl.bufferData(gl.ARRAY_BUFFER,C,gl.STATIC_DRAW);
+  count=total;
+  document.getElementById('score').innerHTML=(mx/mn).toFixed(2)+' <small>×</small>';
+  document.getElementById('pts').textContent=n;
+  console.log(`${mode}: cells=${n} score=${(mx/mn).toFixed(3)}`);
+}
+
+let active=1;
+const picker=document.getElementById('picker');
+[['Naive','naive'],['Onion (r²)','onion']].forEach((s,i)=>{
+  const b=document.createElement('span');b.className='btn'+(i===active?' on':'');
+  b.textContent=s[0];b.onclick=()=>{active=i;[...picker.children].forEach((c,k)=>c.className='btn'+(k===i?' on':''));load(s[1]);};
+  picker.appendChild(b);});
+
+let yaw=0.7,pitch=-0.25,dist=3.4,drag=false,lx=0,ly=0;
+canvas.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{if(!drag)return;yaw+=(e.clientX-lx)*0.01;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch+(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY;});
+canvas.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(1.6,Math.min(9,dist*(1+e.deltaY*0.001)));},{passive:false});
+const cutEl=document.getElementById('cut');
+
+function resize(){const dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr;gl.viewport(0,0,canvas.width,canvas.height);}
+window.addEventListener('resize',resize);
+gl.enable(gl.DEPTH_TEST);gl.clearColor(0.027,0.031,0.051,1);
+
+function frame(){
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  const proj=perspective(1.0,canvas.width/canvas.height,0.1,100);
+  const view=mul(translate(0,0,-dist),mul(rotX(pitch),rotY(yaw)));
+  gl.uniformMatrix4fv(uMVP,false,mul(proj,view));
+  gl.uniform1f(uSize,canvas.height*0.05);
+  gl.bindBuffer(gl.ARRAY_BUFFER,posBuf);gl.enableVertexAttribArray(aPos);gl.vertexAttribPointer(aPos,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,colBuf);gl.enableVertexAttribArray(aCol);gl.vertexAttribPointer(aCol,3,gl.FLOAT,false,0,0);
+  gl.drawArrays(gl.POINTS,0,count);
+  requestAnimationFrame(frame);
+}
+// cutaway: hide the front half so you see the shells in cross-section.
+// (done cheaply by scaling point alpha? simpler: rebuild filtered set on toggle)
+let lastCut=true;
+function applyCut(){
+  const pts=build(curMode), sp=nnSpacing(pts), n=pts.length;
+  let mn=Infinity,mx=-Infinity;for(const s of sp){if(s<mn)mn=s;if(s>mx)mx=s;}
+  const core=coreBlob();
+  const keep=(p)=>!cutEl.checked || p[0]<=0.02;   // clip +x half when cutaway on
+  const Pa=[],Ca=[];
+  for(let i=0;i<n;i++){if(!keep(pts[i]))continue;
+    Pa.push(pts[i][0],pts[i][1],pts[i][2]);
+    const c=ramp((sp[i]-mn)/(mx-mn));Ca.push(c[0],c[1],c[2]);}
+  for(const p of core){if(!keep(p))continue;Pa.push(p[0],p[1],p[2]);Ca.push(1,0.25,0.12);}
+  gl.bindBuffer(gl.ARRAY_BUFFER,posBuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(Pa),gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,colBuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(Ca),gl.STATIC_DRAW);
+  count=Pa.length/3;
+  document.getElementById('score').innerHTML=(mx/mn).toFixed(2)+' <small>×</small>';
+  document.getElementById('pts').textContent=n;
+}
+cutEl.addEventListener('change',applyCut);
+// override picker clicks to respect cutaway
+[...picker.children].forEach((b,i)=>{const s=[['Naive','naive'],['Onion (r²)','onion']][i];
+  b.onclick=()=>{active=i;[...picker.children].forEach((c,k)=>c.className='btn'+(k===i?' on':''));curMode=s[1];applyCut();};});
+
+resize();curMode='onion';applyCut();frame();
+</script>
+</body>
+</html>
