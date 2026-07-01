@@ -55,8 +55,14 @@ Pick how to tile a sphere with even, addressable cells. The core hard problem.
 | Naive shells    | 3.98  | constant cells/shell — crowd toward the core |
 | **Onion (∝ r²)** | **1.15** | cells/shell scale with area — even & cubic, fewer cells |
 
-## 2 — The Planet ⬜
+## 2 — The Planet 🔄
 Give the sphere depth and a living surface.
+
+> **Build 1 (`planet.html`, Fable, 2026-07-01) delivered most of this in one
+> orbital artifact:** onion depth, Perlin terrain, biomes, caves, oceans, ore
+> veins, a lava core, real MC textures + biome tint, and the cutaway reveal —
+> at 86–104fps via surface-shell-only meshing. Still "orbital-view" (not yet
+> walkable), so §2 stays in-progress until it's folded into the player build.
 
 - **2.1 ⬜ Solid depth (onion)** — fill the sphere through its radius with fewer
   cells per inner shell. Radial layout: **molten lava core = bedrock**, strata
@@ -66,6 +72,11 @@ Give the sphere depth and a living surface.
   the crust has hills and valleys. *Verifier:* visible rolling terrain.
 - **2.3 ⬜ Minecraft-style world gen** — biomes, caves, oceans, wrapped around the
   sphere. *Verifier:* distinct biomes, carved caves, sea-level water on the planet.
+- **2.4 ⬜ Day/night cycle from real rotation** — a sun out in space + the planet
+  spinning on its axis; the shadow terminator sweeps the surface, giving true
+  sunrises/sunsets at the edge (not a flat fake skybox). Warm/cool light as the
+  sun rises and sets. Sets up §5's solar-system lighting. *Verifier:* spin the
+  planet and watch the lit hemisphere track the sun; day and night pass smoothly.
 
 ## 3 — The Blocks ⬜
 Make it look like a voxel world.
@@ -73,9 +84,11 @@ Make it look like a voxel world.
 - **3.1 ⬜ Real shaded cubes/prisms** — swap dots for solid lit cells.
 - **3.2 ⬜ Borrowed textures** — map Minecraft-style block textures onto faces.
 
-## 4 — The Player ⬜
+## 4 — The Player 🔄 (next up)
 - **4.1 ⬜ Walk / fly the surface** — first-person camera with radial gravity
-  (down = toward the core).
+  (down = toward the core). **Immediate next build** — drop the orbital camera
+  down onto Build 1's planet: POV exploration, walk/fly toggle, gravity always
+  pointing at the core. Pairs with 2.4 (day/night) for the first playable feel.
 
 ## 5 — The Solar System ⬜
 - **5.1 ⬜ Multiple spheres** — several finite worlds you can fly between.
