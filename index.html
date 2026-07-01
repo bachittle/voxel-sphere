@@ -2,157 +2,97 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Voxel Sphere — Goal 1</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voxel Sphere</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0a0c12; overflow: hidden;
-    font-family: ui-monospace, Menlo, monospace; color: #cdd6f4; }
-  canvas { display: block; width: 100vw; height: 100vh; cursor: grab; }
-  canvas:active { cursor: grabbing; }
-  #ui { position: fixed; top: 14px; left: 14px; background: rgba(20,22,30,.8);
-    padding: 12px 14px; border-radius: 10px; font-size: 13px; line-height: 1.7;
-    user-select: none; }
-  #ui label { display: block; }
-  #res { width: 200px; vertical-align: middle; }
-  b { color: #89b4fa; }
-  small { color: #7f849c; }
+  :root{--bg:#07080d;--card:#12141c;--card2:#1a1d27;--ink:#cdd6f4;--mut:#7f849c;--accent:#89b4fa;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,Menlo,monospace;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:920px;margin:0 auto;padding:48px 22px 64px;}
+  header h1{font-size:30px;margin:0 0 6px;letter-spacing:.5px;}
+  header h1 .v{color:var(--accent);}
+  header p{color:var(--mut);font-size:14px;line-height:1.6;margin:0 0 4px;max-width:660px;}
+  .lead{color:var(--ink);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+    gap:16px;margin-top:30px;}
+  a.card{display:block;text-decoration:none;color:inherit;background:var(--card);
+    border:1px solid #20232f;border-radius:14px;padding:18px 18px 16px;
+    transition:transform .12s ease,border-color .12s ease,background .12s ease;}
+  a.card:hover{transform:translateY(-3px);border-color:var(--accent);background:var(--card2);}
+  .card .tag{font-size:11px;color:var(--accent);letter-spacing:.7px;text-transform:uppercase;}
+  .card h2{font-size:17px;margin:6px 0 6px;}
+  .card p{font-size:13px;color:var(--mut);line-height:1.55;margin:0;}
+  .card.feat{grid-column:1/-1;background:linear-gradient(135deg,#161a2b,#12141c);
+    border-color:#2b3147;}
+  .card.feat h2{font-size:21px;}
+  .sec{margin-top:42px;font-size:12px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--mut);border-bottom:1px solid #20232f;padding-bottom:8px;}
+  footer{margin-top:44px;color:var(--mut);font-size:12px;line-height:1.7;}
+  footer code{color:#bac2de;background:#161823;padding:1px 6px;border-radius:5px;}
+  .scores{margin-top:10px;font-size:12px;color:var(--mut);}
+  .scores b{color:#f9e2af;}
 </style>
 </head>
 <body>
-<div id="ui">
-  <label>resolution <b id="resval">24</b>
-    <input id="res" type="range" min="4" max="160" value="24"></label>
-  <label>points: <b id="count">0</b></label>
-  <small>drag to spin · scroll to zoom</small>
+<div class="wrap">
+  <header>
+    <h1><span class="v">Voxel</span> Sphere</h1>
+    <p class="lead">A from-scratch WebGL voxel world where the world is a finite
+      <b>sphere</b> instead of a flat grid — "down" is toward a molten core, "up"
+      is out to the sky.</p>
+    <p>These demos work through <b>Goal 1 — The Geometry</b>: how to tile a sphere
+      with even, addressable cells, on the surface and through its depth.</p>
+  </header>
+
+  <div class="grid">
+    <a class="card feat" href="demo.html">
+      <div class="tag">★ Start here · everything in one place</div>
+      <h2>Geometry Explorer</h2>
+      <p>Every tiling and dial unified: switch between Lat/Long · Cubed · Fibonacci ·
+        Icosphere, color by distortion / region / depth shell, morph cube→sphere,
+        and toggle solid onion depth with a cutaway and live evenness score.</p>
+    </a>
+  </div>
+
+  <div class="sec">Individual studies</div>
+  <div class="grid">
+    <a class="card" href="dots.html">
+      <div class="tag">Goal 1.1 – 1.2</div>
+      <h2>Sphere of Dots</h2>
+      <p>A finite sphere of points with an orbit camera and a live resolution
+        slider — and the lat/long pole problem made visible.</p>
+    </a>
+    <a class="card" href="cubed-sphere.html">
+      <div class="tag">Goal 1.3</div>
+      <h2>Cube → Sphere</h2>
+      <p>Inflate a gridded cube into a ball: no pole pinch, a clean per-face grid,
+        cube blocks. Watch it breathe between cube and sphere.</p>
+    </a>
+    <a class="card" href="heatmap.html">
+      <div class="tag">Goal 1.4</div>
+      <h2>Distortion Heat Map</h2>
+      <p>Measure each cell's spacing and paint blue→red across all four schemes,
+        with a histogram and a single max/min evenness score.</p>
+    </a>
+    <a class="card" href="depth.html">
+      <div class="tag">Goal 1.5</div>
+      <h2>Onion Depth Cutaway</h2>
+      <p>Depth distortion: naive shells crowd the core; the onion (cells ∝ r²)
+        stays cube-ish all the way down, from lava core to surface.</p>
+    </a>
+  </div>
+
+  <div class="scores">
+    Best so far — <b>Surface:</b> Icosphere 1.12× (even <i>and</i> gridded) ·
+    <b>Depth:</b> Onion 1.15× (vs 3.98× naive). <i>Lower = more even, 1.0 = perfect.</i>
+  </div>
+
+  <footer>
+    Built from scratch, no dependencies — just WebGL + a hand-rolled mat4.
+    Node checks: <code>measure-all.mjs</code>, <code>depth-measure.mjs</code>,
+    <code>compute-ratio.mjs</code>. Roadmap in <code>GOAL.md</code>.
+  </footer>
 </div>
-<canvas id="gl"></canvas>
-<script>
-// ---- tiny mat4 helpers (no deps, from scratch) ----
-function perspective(fov, aspect, near, far) {
-  const f = 1 / Math.tan(fov / 2), nf = 1 / (near - far);
-  return [f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0];
-}
-function mul(a, b) {
-  const o = new Array(16);
-  for (let r=0;r<4;r++) for (let c=0;c<4;c++)
-    o[c*4+r] = a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];
-  return o;
-}
-function rotX(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];}
-function rotY(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];}
-function translate(x,y,z){return[1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1];}
-
-// ---- gl setup ----
-const canvas = document.getElementById('gl');
-const gl = canvas.getContext('webgl');
-if (!gl) alert('WebGL not available');
-
-const vsrc = `
-  attribute vec3 pos;
-  uniform mat4 uMVP;
-  uniform float uSize;
-  varying float vLat;            // -1 pole .. 1 pole, for coloring
-  void main() {
-    gl_Position = uMVP * vec4(pos, 1.0);
-    vLat = pos.y;
-    gl_PointSize = uSize / gl_Position.w;
-  }`;
-const fsrc = `
-  precision mediump float;
-  varying float vLat;
-  void main() {
-    // round point
-    vec2 d = gl_PointCoord - vec2(0.5);
-    if (dot(d, d) > 0.25) discard;
-    // color by latitude: warm at poles, cool at equator
-    float t = abs(vLat);
-    vec3 col = mix(vec3(0.36,0.7,0.98), vec3(0.98,0.55,0.45), t);
-    gl_FragColor = vec4(col, 1.0);
-  }`;
-function compile(type, src){
-  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s);
-  return s;
-}
-const prog = gl.createProgram();
-gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsrc));
-gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsrc));
-gl.linkProgram(prog); gl.useProgram(prog);
-const aPos = gl.getAttribLocation(prog, 'pos');
-const uMVP = gl.getUniformLocation(prog, 'uMVP');
-const uSize = gl.getUniformLocation(prog, 'uSize');
-const buf = gl.createBuffer();
-
-// ---- build a sphere of points in polar coords ----
-// latitude bands theta in [0, PI], longitude phi in [0, 2PI].
-// One point per cell center. This lat/long scheme deliberately bunches
-// points near the poles — that's goal 1.4, the pole problem made visible.
-let pointCount = 0;
-function buildSphere(res) {
-  const latBands = res, lonBands = res * 2;
-  const pts = [];
-  for (let i = 0; i < latBands; i++) {
-    const theta = (i + 0.5) / latBands * Math.PI;     // cell center
-    const y = Math.cos(theta), r = Math.sin(theta);
-    for (let j = 0; j < lonBands; j++) {
-      const phi = (j + 0.5) / lonBands * 2 * Math.PI;
-      pts.push(r * Math.cos(phi), y, r * Math.sin(phi));
-    }
-  }
-  pointCount = pts.length / 3;
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pts), gl.STATIC_DRAW);
-  document.getElementById('count').textContent = pointCount;
-}
-
-// ---- camera / interaction state ----
-let yaw = 0.6, pitch = -0.3, dist = 3.2, dragging = false, lx = 0, ly = 0;
-canvas.addEventListener('mousedown', e => { dragging = true; lx = e.clientX; ly = e.clientY; });
-window.addEventListener('mouseup', () => dragging = false);
-window.addEventListener('mousemove', e => {
-  if (!dragging) return;
-  yaw += (e.clientX - lx) * 0.01; pitch += (e.clientY - ly) * 0.01;
-  pitch = Math.max(-1.5, Math.min(1.5, pitch));
-  lx = e.clientX; ly = e.clientY;
-});
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  dist = Math.max(1.4, Math.min(9, dist * (1 + e.deltaY * 0.001)));
-}, { passive: false });
-
-const res = document.getElementById('res');
-res.addEventListener('input', () => {
-  document.getElementById('resval').textContent = res.value;
-  buildSphere(+res.value);
-});
-
-// ---- render loop ----
-function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
-  gl.viewport(0, 0, canvas.width, canvas.height);
-}
-window.addEventListener('resize', resize);
-
-gl.enable(gl.DEPTH_TEST);
-gl.clearColor(0.04, 0.047, 0.07, 1);
-
-function frame() {
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  const aspect = canvas.width / canvas.height;
-  const proj = perspective(1.05, aspect, 0.1, 100);
-  const view = mul(translate(0, 0, -dist), mul(rotX(pitch), rotY(yaw)));
-  gl.uniformMatrix4fv(uMVP, false, mul(proj, view));
-  gl.uniform1f(uSize, canvas.height * 0.9 / (+res.value));
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
-  gl.drawArrays(gl.POINTS, 0, pointCount);
-  requestAnimationFrame(frame);
-}
-
-resize();
-buildSphere(+res.value);
-frame();
-</script>
 </body>
 </html>

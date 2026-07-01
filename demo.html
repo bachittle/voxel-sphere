@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voxel Sphere — Geometry Explorer</title>
+<style>
+  html,body{margin:0;height:100%;background:#07080d;overflow:hidden;
+    font-family:ui-monospace,Menlo,monospace;color:#cdd6f4;}
+  canvas#gl{display:block;width:100vw;height:100vh;cursor:grab;}
+  canvas#gl:active{cursor:grabbing;}
+  #ui{position:fixed;top:16px;left:16px;background:rgba(18,20,28,.86);
+    padding:14px 16px;border-radius:12px;font-size:13px;line-height:1.55;
+    user-select:none;width:262px;max-height:calc(100vh - 32px);overflow:auto;}
+  h1{font-size:13px;margin:0 0 10px;color:#89b4fa;letter-spacing:.5px;}
+  .sec{margin:12px 0 4px;font-size:11px;text-transform:uppercase;
+    letter-spacing:.8px;color:#7f849c;}
+  .btn{display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;border-radius:7px;
+    background:#1e2030;color:#bac2de;cursor:pointer;font-size:12px;}
+  .btn.on{background:#89b4fa;color:#11111b;font-weight:bold;}
+  .btn.dim{opacity:.35;pointer-events:none;}
+  input[type=range]{width:100%;vertical-align:middle;margin:4px 0;}
+  label{display:block;font-size:12px;}
+  label.row{display:flex;align-items:center;gap:6px;}
+  #score{font-size:26px;color:#f9e2af;margin:6px 0 0;}
+  #score small{font-size:12px;color:#7f849c;}
+  #hist{display:block;margin-top:8px;background:#0d0f17;border-radius:6px;}
+  .leg{height:9px;border-radius:5px;margin-top:6px;
+    background:linear-gradient(90deg,#3b82f6,#22d3a8,#fde047,#f97316,#ef4444);}
+  .legrow{display:flex;justify-content:space-between;font-size:10px;color:#7f849c;}
+  b{color:#89b4fa;}
+  small.hint{color:#7f849c;display:block;margin-top:10px;}
+  .note{font-size:11px;color:#7f849c;margin-top:2px;}
+  #uitoggle{cursor:pointer;user-select:none;}
+  #chev{float:right;transition:transform .15s;color:#7f849c;}
+  #ui.collapsed #uibody{display:none;}
+  #ui.collapsed h1{margin-bottom:0;}
+  #ui.collapsed #chev{transform:rotate(-90deg);}
+</style>
+</head>
+<body>
+<div id="ui" class="collapsed">
+  <h1 id="uitoggle" onclick="document.getElementById('ui').classList.toggle('collapsed')">VOXEL SPHERE · GEOMETRY <span id="chev">▾</span></h1>
+  <div id="uibody">
+
+  <div class="sec">Surface tiling</div>
+  <div id="tiling"></div>
+  <div class="note" id="tnote"></div>
+
+  <div class="sec">Resolution <b id="resval"></b></div>
+  <input id="res" type="range" min="6" max="46" value="24">
+
+  <div class="sec">Color by</div>
+  <div id="color"></div>
+
+  <div class="sec">Cube → sphere (cubed only)</div>
+  <label><input id="inflate" type="range" min="0" max="100" value="100"></label>
+  <label class="row"><input id="breathe" type="checkbox"> auto breathe</label>
+
+  <div class="sec">Depth</div>
+  <label class="row"><input id="solid" type="checkbox"> solid (fill the radius)</label>
+  <div id="radial" style="margin-top:4px"></div>
+  <label class="cut" style="margin-top:6px">cutaway <b id="cutval">0%</b>
+    <input id="cut" type="range" min="0" max="100" value="0"></label>
+
+  <div class="sec">Score (lower = more even)</div>
+  <div id="score">—</div>
+  <div>max / min spacing · <span id="pts">0</span> cells</div>
+  <canvas id="hist" width="230" height="54"></canvas>
+  <div class="leg"></div>
+  <div class="legrow"><span>tight</span><span>even</span><span>stretched</span></div>
+
+  <small class="hint">drag to rotate · scroll to zoom</small>
+  </div>
+</div>
+<canvas id="gl"></canvas>
+<script>
+// ===== mat4 (from scratch, no deps) =====
+function perspective(f,a,n,fr){const t=1/Math.tan(f/2),nf=1/(n-fr);
+  return[t/a,0,0,0,0,t,0,0,0,0,(fr+n)*nf,-1,0,0,2*fr*n*nf,0];}
+function mul(a,b){const o=new Array(16);for(let r=0;r<4;r++)for(let c=0;c<4;c++)
+  o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o;}
+function rotX(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];}
+function rotY(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];}
+function translate(x,y,z){return[1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1];}
+
+const PHI=(1+Math.sqrt(5))/2;
+const CORE=0.18;                 // lava-core radius (bedrock)
+function norm(p){const l=Math.hypot(p[0],p[1],p[2])||1;return[p[0]/l,p[1]/l,p[2]/l];}
+
+// ===== the four tilings, parameterized by an approximate cell count N =====
+// each returns {pts:[[x,y,z]...] unit sphere, cube:[[..]] cube-space, region:[int]}
+function latLong(N){const latB=Math.max(2,Math.round(Math.sqrt(N/2))),lonB=latB*2;
+  const pts=[],region=[];
+  for(let i=0;i<latB;i++){const th=(i+0.5)/latB*Math.PI,y=Math.cos(th),r=Math.sin(th);
+    for(let j=0;j<lonB;j++){const ph=(j+0.5)/lonB*2*Math.PI;
+      pts.push([r*Math.cos(ph),y,r*Math.sin(ph)]);region.push(i);}}
+  return{pts,cube:pts,region};}
+
+function cubed(N){const side=Math.max(1,Math.round(Math.sqrt(N/6)));
+  const pts=[],cube=[],region=[];
+  for(let axis=0;axis<3;axis++)for(let s=-1;s<=1;s+=2){const face=axis*2+(s>0?0:1);
+    for(let i=0;i<side;i++)for(let j=0;j<side;j++){
+      const u=((i+0.5)/side)*2-1,v=((j+0.5)/side)*2-1;
+      const c=[0,0,0];c[axis]=s;c[(axis+1)%3]=u;c[(axis+2)%3]=v;
+      cube.push([c[0]/PHI*0.9,c[1]/PHI*0.9,c[2]/PHI*0.9]); // tame cube scale for the morph
+      pts.push(norm(c));region.push(face);}}
+  return{pts,cube,region};}
+
+function fibonacci(N){const n=Math.max(4,Math.round(N)),ga=2*Math.PI*(1-1/PHI);
+  const pts=[],region=[];
+  for(let i=0;i<n;i++){const y=1-(i+0.5)/n*2,r=Math.sqrt(Math.max(0,1-y*y)),t=i*ga;
+    pts.push([r*Math.cos(t),y,r*Math.sin(t)]);region.push(Math.floor(i/n*12));}
+  return{pts,cube:pts,region};}
+
+function icosphere(N){let v=[[-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],[0,-1,PHI],
+    [0,1,PHI],[0,-1,-PHI],[0,1,-PHI],[PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1]].map(norm);
+  let f=[[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],
+    [10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+  // subdivide until vertex count nearest N (level counts: 12,42,162,642,2562)
+  const lvlCount=s=>10*Math.pow(4,s)+2;
+  let lvl=0;while(lvl<4 && Math.abs(lvlCount(lvl+1)-N)<Math.abs(lvlCount(lvl)-N))lvl++;
+  for(let s=0;s<lvl;s++){const mid=new Map(),nf=[];
+    const gm=(a,b)=>{const k=a<b?a*1e6+b:b*1e6+a;if(mid.has(k))return mid.get(k);
+      const m=norm([v[a][0]+v[b][0],v[a][1]+v[b][1],v[a][2]+v[b][2]]);v.push(m);
+      mid.set(k,v.length-1);return v.length-1;};
+    for(const[a,b,c]of f){const ab=gm(a,b),bc=gm(b,c),ca=gm(c,a);
+      nf.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);}f=nf;}
+  // the original 12 vertices are the pentagon centers; flag them region=1
+  const region=v.map((_,i)=>i<12?1:0);
+  return{pts:v,cube:v,region};}
+
+const TILINGS={
+  latlong:{fn:latLong,label:'Lat/Long',note:'the pole problem — bands pinch to a point'},
+  cubed:{fn:cubed,label:'Cubed',note:'inflate a gridded cube · cube blocks, clean grid'},
+  fibonacci:{fn:fibonacci,label:'Fibonacci',note:'near-perfect spacing but no real grid'},
+  icosphere:{fn:icosphere,label:'Icosphere',note:'hexagons + 12 pentagons · even AND gridded'},
+};
+
+// ===== measurement (mirrors depth-measure.mjs: 3D nearest-neighbor spacing) =====
+function nnSpacing(P,n){const out=new Float32Array(n);
+  for(let i=0;i<n;i++){let best=Infinity;const ax=P[i*3],ay=P[i*3+1],az=P[i*3+2];
+    for(let j=0;j<n;j++){if(j===i)continue;
+      const dx=ax-P[j*3],dy=ay-P[j*3+1],dz=az-P[j*3+2];
+      const d=dx*dx+dy*dy+dz*dz;if(d<best)best=d;}
+    out[i]=Math.sqrt(best);}
+  return out;}
+
+// blue -> teal -> yellow -> orange -> red
+function ramp(t){const st=[[0.23,0.51,0.96],[0.13,0.83,0.66],[0.99,0.88,0.28],[0.98,0.45,0.09],[0.94,0.27,0.27]];
+  const x=Math.max(0,Math.min(1,t))*(st.length-1),i=Math.floor(x),fr=x-i;
+  const a=st[i],b=st[Math.min(i+1,st.length-1)];
+  return[a[0]+(b[0]-a[0])*fr,a[1]+(b[1]-a[1])*fr,a[2]+(b[2]-a[2])*fr];}
+const PALETTE=[[0.36,0.7,0.98],[0.98,0.55,0.45],[0.6,0.9,0.5],[0.95,0.8,0.4],
+  [0.78,0.6,0.98],[0.45,0.85,0.85],[0.9,0.6,0.75],[0.55,0.75,0.6]];
+
+// ===== gl =====
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl');
+if(!gl)alert('WebGL not available');
+const vs=`attribute vec3 sPos;attribute vec3 cPos;attribute vec3 col;
+  uniform mat4 uMVP;uniform float uT,uClip,uSize;varying vec3 vc;
+  void main(){
+    if(sPos.x>uClip){gl_Position=vec4(2.0,2.0,2.0,1.0);gl_PointSize=0.0;vc=col;return;}
+    vec3 p=mix(cPos,sPos,uT);
+    gl_Position=uMVP*vec4(p,1.0);
+    gl_PointSize=uSize/gl_Position.w;vc=col;}`;
+const fs=`precision mediump float;varying vec3 vc;void main(){
+  vec2 d=gl_PointCoord-vec2(0.5);if(dot(d,d)>0.25)discard;gl_FragColor=vec4(vc,1.0);}`;
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(o);return o;}
+const prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);gl.useProgram(prog);
+const aS=gl.getAttribLocation(prog,'sPos'),aC=gl.getAttribLocation(prog,'cPos'),
+      aCol=gl.getAttribLocation(prog,'col');
+const uMVP=gl.getUniformLocation(prog,'uMVP'),uT=gl.getUniformLocation(prog,'uT'),
+      uClip=gl.getUniformLocation(prog,'uClip'),uSize=gl.getUniformLocation(prog,'uSize');
+const sBuf=gl.createBuffer(),cBuf=gl.createBuffer(),colBuf=gl.createBuffer();
+
+// ===== state =====
+const S={tiling:'icosphere',res:24,color:'distortion',solid:false,radial:'onion'};
+const CAP=5200;                          // cell ceiling so O(n^2) nn stays snappy
+let G=null;                              // cached geometry for recoloring
+
+// ===== build geometry (heavy: tiling/res/solid changes) =====
+function genAt(N){return TILINGS[S.tiling].fn(N);}
+function buildGeometry(){
+  const baseN=S.res*S.res;
+  const SP=[],CP=[],REG=[],SHT=[];        // sphere pos, cube pos, region, shell-t
+  if(!S.solid){
+    const g=genAt(Math.min(baseN,2600));
+    for(let i=0;i<g.pts.length;i++){
+      SP.push(...g.pts[i]);CP.push(...g.cube[i]);REG.push(g.region[i]);SHT.push(1);}
+  }else{
+    const surf=Math.sqrt(4*Math.PI/baseN);
+    const SHELLS=Math.max(2,Math.round((1-CORE)/surf)),DR=(1-CORE)/SHELLS;
+    // pre-size so we can scale baseN down if we'd blow the cap
+    let est=0;for(let s=0;s<SHELLS;s++){const r=CORE+(s+0.5)*DR;
+      est+=S.radial==='onion'?Math.max(12,Math.round(baseN*r*r)):baseN;}
+    const scale=est>CAP?CAP/est:1;
+    for(let s=0;s<SHELLS;s++){const r=CORE+(s+0.5)*DR;
+      const m=Math.max(12,Math.round((S.radial==='onion'?baseN*r*r:baseN)*scale));
+      const g=genAt(m);
+      for(let i=0;i<g.pts.length;i++){const p=g.pts[i];
+        SP.push(p[0]*r,p[1]*r,p[2]*r);CP.push(p[0]*r,p[1]*r,p[2]*r);
+        REG.push(g.region[i]);SHT.push(s/(SHELLS-1));}}
+  }
+  const n=SP.length/3;
+  const Pf=new Float32Array(SP);
+  const space=nnSpacing(Pf,n);
+  let mn=Infinity,mx=-Infinity;for(const v of space){if(v<mn)mn=v;if(v>mx)mx=v;}
+
+  // append lava core (solid only) — excluded from the score
+  let coreN=0;
+  if(S.solid){const m=140,ga=2*Math.PI*(1-1/PHI);
+    for(let i=0;i<m;i++){const y=1-(i+0.5)/m*2,rr=Math.sqrt(Math.max(0,1-y*y)),t=i*ga;
+      SP.push(CORE*0.75*rr*Math.cos(t),CORE*0.75*y,CORE*0.75*rr*Math.sin(t));
+      CP.push(CORE*0.75*rr*Math.cos(t),CORE*0.75*y,CORE*0.75*rr*Math.sin(t));
+      REG.push(-1);SHT.push(0);}coreN=m;}
+
+  G={n,coreN,total:n+coreN,SP:new Float32Array(SP),CP:new Float32Array(CP),
+     REG,SHT,space,mn,mx};
+  gl.bindBuffer(gl.ARRAY_BUFFER,sBuf);gl.bufferData(gl.ARRAY_BUFFER,G.SP,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,cBuf);gl.bufferData(gl.ARRAY_BUFFER,G.CP,gl.STATIC_DRAW);
+  document.getElementById('score').innerHTML=(mx/mn).toFixed(2)+' <small>×</small>';
+  document.getElementById('pts').textContent=n;
+  buildColors();
+}
+
+// ===== color (light: color-mode changes only) =====
+function buildColors(){
+  const{total,n,REG,SHT,space,mn,mx}=G;
+  const C=new Float32Array(total*3);
+  for(let i=0;i<total;i++){let c;
+    if(REG[i]===-1){c=[1.0,0.27,0.12];}                       // lava core
+    else if(S.color==='distortion'){c=ramp((space[i]-mn)/((mx-mn)||1));}
+    else if(S.color==='depth'){c=ramp(SHT[i]);}               // inner=blue .. surface=red
+    else{ // region
+      if(S.tiling==='icosphere')c=REG[i]===1?[0.95,0.35,0.85]:[0.4,0.7,0.95];
+      else c=PALETTE[((REG[i]%PALETTE.length)+PALETTE.length)%PALETTE.length];
+    }
+    C[i*3]=c[0];C[i*3+1]=c[1];C[i*3+2]=c[2];}
+  gl.bindBuffer(gl.ARRAY_BUFFER,colBuf);gl.bufferData(gl.ARRAY_BUFFER,C,gl.STATIC_DRAW);
+  buildHistogram();
+}
+function buildHistogram(){
+  const c=document.getElementById('hist'),ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  const{space,mn,mx}=G,bins=40,h=new Array(bins).fill(0);
+  for(const s of space){let b=Math.floor((s-mn)/((mx-mn)||1)*bins);
+    b=Math.max(0,Math.min(bins-1,b));h[b]++;}
+  const hmax=Math.max(...h,1),bw=c.width/bins;
+  for(let b=0;b<bins;b++){const col=ramp(b/(bins-1));
+    ctx.fillStyle=`rgb(${col[0]*255|0},${col[1]*255|0},${col[2]*255|0})`;
+    const bh=h[b]/hmax*(c.height-4);ctx.fillRect(b*bw,c.height-bh,bw-1,bh);}
+}
+
+// ===== UI wiring =====
+function buttons(hostId,items,getActive,onPick){
+  const host=document.getElementById(hostId);host.innerHTML='';
+  items.forEach(([key,label])=>{const b=document.createElement('span');
+    b.className='btn'+(getActive()===key?' on':'');b.textContent=label;b.dataset.key=key;
+    b.onclick=()=>{onPick(key);refreshButtons(host,getActive);};host.appendChild(b);});
+}
+function refreshButtons(host,getActive){[...host.children].forEach(c=>
+  c.className='btn'+(c.dataset.key===getActive()?' on':''));}
+
+buttons('tiling',Object.entries(TILINGS).map(([k,v])=>[k,v.label]),
+  ()=>S.tiling,k=>{S.tiling=k;document.getElementById('tnote').textContent=TILINGS[k].note;
+    syncEnable();buildGeometry();});
+buttons('color',[['distortion','Distortion'],['region','Region'],['depth','Depth shell']],
+  ()=>S.color,k=>{S.color=k;buildColors();});
+buttons('radial',[['naive','Naive'],['onion','Onion (r²)']],
+  ()=>S.radial,k=>{S.radial=k;buildGeometry();});
+
+const resEl=document.getElementById('res'),resVal=document.getElementById('resval');
+let resTimer=null;
+resEl.addEventListener('input',()=>{S.res=+resEl.value;resVal.textContent=S.res;
+  clearTimeout(resTimer);resTimer=setTimeout(buildGeometry,90);}); // debounce the O(n^2) rebuild
+
+const solidEl=document.getElementById('solid');
+solidEl.addEventListener('change',()=>{S.solid=solidEl.checked;syncEnable();buildGeometry();});
+
+const inflateEl=document.getElementById('inflate'),breatheEl=document.getElementById('breathe');
+inflateEl.addEventListener('input',()=>breatheEl.checked=false);
+const cutEl=document.getElementById('cut'),cutVal=document.getElementById('cutval');
+cutEl.addEventListener('input',()=>cutVal.textContent=cutEl.value+'%');
+
+function syncEnable(){
+  // inflate is only meaningful for cubed surface (not solid)
+  const canInflate=S.tiling==='cubed'&&!S.solid;
+  inflateEl.disabled=breatheEl.disabled=!canInflate;
+  document.getElementById('radial').classList.toggle('dim',!S.solid);
+}
+
+// ===== camera =====
+let yaw=0.7,pitch=-0.28,dist=3.4,drag=false,lx=0,ly=0,panX=0,panY=0;
+canvas.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{if(!drag)return;yaw+=(e.clientX-lx)*0.01;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch+(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY;});
+canvas.addEventListener('wheel',e=>{e.preventDefault();
+  dist=Math.max(1.5,Math.min(9,dist*(1+e.deltaY*0.001)));},{passive:false});
+
+// touch: one finger rotates, two fingers pan + pinch-zoom
+let pinch=0,cx=0,cy=0;
+function tdist(t){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;
+  return Math.hypot(dx,dy);}
+function tcen(t){return[(t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2];}
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches;
+  if(t.length===1){drag=true;lx=t[0].clientX;ly=t[0].clientY;}
+  else if(t.length===2){drag=false;pinch=tdist(t);[cx,cy]=tcen(t);}},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches;
+  if(t.length===1&&drag){yaw+=(t[0].clientX-lx)*0.01;
+    pitch=Math.max(-1.5,Math.min(1.5,pitch+(t[0].clientY-ly)*0.01));
+    lx=t[0].clientX;ly=t[0].clientY;}
+  else if(t.length===2){const d=tdist(t),[nx,ny]=tcen(t);
+    if(pinch)dist=Math.max(1.5,Math.min(9,dist*(pinch/d)));
+    panX+=(nx-cx)*dist*0.002;panY-=(ny-cy)*dist*0.002;
+    pinch=d;cx=nx;cy=ny;}},{passive:false});
+canvas.addEventListener('touchend',e=>{drag=false;pinch=0;
+  if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}});
+
+function resize(){const dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr;
+  gl.viewport(0,0,canvas.width,canvas.height);}
+window.addEventListener('resize',resize);
+gl.enable(gl.DEPTH_TEST);gl.clearColor(0.027,0.031,0.051,1);
+
+let phase=0;
+function frame(){
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  // inflate t
+  let t=1;
+  if(S.tiling==='cubed'&&!S.solid){
+    if(breatheEl.checked){phase+=0.012;t=(1-Math.cos(phase))/2;inflateEl.value=Math.round(t*100);}
+    else t=inflateEl.value/100;
+  }
+  // cutaway: hide +x hemisphere progressively (uClip>1 = nothing hidden)
+  const a=cutEl.value/100, clip=2-2*a;
+  const proj=perspective(1.0,canvas.width/canvas.height,0.1,100);
+  const view=mul(translate(panX,panY,-dist),mul(rotX(pitch),rotY(yaw)));
+  gl.uniformMatrix4fv(uMVP,false,mul(proj,view));
+  gl.uniform1f(uT,t);gl.uniform1f(uClip,clip);
+  gl.uniform1f(uSize,canvas.height*(S.solid?0.05:0.075));
+  gl.bindBuffer(gl.ARRAY_BUFFER,sBuf);gl.enableVertexAttribArray(aS);gl.vertexAttribPointer(aS,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,cBuf);gl.enableVertexAttribArray(aC);gl.vertexAttribPointer(aC,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,colBuf);gl.enableVertexAttribArray(aCol);gl.vertexAttribPointer(aCol,3,gl.FLOAT,false,0,0);
+  gl.drawArrays(gl.POINTS,0,G?G.total:0);
+  requestAnimationFrame(frame);
+}
+
+// ===== boot =====
+resVal.textContent=S.res;
+document.getElementById('tnote').textContent=TILINGS[S.tiling].note;
+syncEnable();resize();buildGeometry();frame();
+</script>
+</body>
+</html>

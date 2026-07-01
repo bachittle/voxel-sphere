@@ -16,7 +16,7 @@ Pick how to tile a sphere with even, addressable cells. The core hard problem.
 
 - **1.1 ✅ Spinnable sphere of dots** — finite sphere of points, orbit camera,
   live resolution slider. *Verifier:* drag spins, scroll zooms, slider adds dots.
-  (`index.html`)
+  (`dots.html`)
 - **1.2 ✅ The pole problem, seen** — a lat/long grid visibly pinches all points
   to a single point at each pole. The thing every other scheme must beat.
 - **1.3 ✅ Cubed-sphere surface** — inflate a gridded cube into a ball; no pole
@@ -82,6 +82,7 @@ Make it look like a voxel world.
 
 ---
 
-*Demos:* `index.html` (dots), `cubed-sphere.html` (cube→ball morph),
-`heatmap.html` (distortion comparison). *Checks:* `compute-ratio.mjs`,
-`measure-all.mjs`.
+*Demos:* `index.html` (hub linking all demos), `demo.html` (unified geometry
+explorer — all tilings + dials), `dots.html` (dots), `cubed-sphere.html`
+(cube→ball morph), `heatmap.html` (distortion comparison), `depth.html` (onion
+cutaway). *Checks:* `compute-ratio.mjs`, `measure-all.mjs`, `depth-measure.mjs`.
