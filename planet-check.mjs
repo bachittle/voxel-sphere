@@ -71,13 +71,18 @@ t0=performance.now();
 const{op,wa}=GEN.buildStatic(P);
 const dt=(performance.now()-t0).toFixed(0);
 const finite=a=>{for(let i=0;i<a.length;i++)if(!Number.isFinite(a[i]))return false;return true;};
-const idxOK=m=>{const nv=m.n/7;for(let i=0;i<m.ni;i++)if(m.I[i]>=nv)return false;return true;};
+const idxOK=m=>{const nv=m.n/10;for(let i=0;i<m.ni;i++)if(m.I[i]>=nv)return false;return true;};
 console.log(`— static mesh (${dt}ms) — opaque ${op.quads} quads · water ${wa.quads} quads · total ${op.quads+wa.quads}`);
 check(op.quads>50000&&op.quads<1200000,'opaque quad count sane');
 check(wa.quads>5000,'water quads present');
 check(finite(op.V.subarray(0,op.n))&&finite(wa.V.subarray(0,wa.n)),'no NaN/Inf vertices');
 check(idxOK(op)&&idxOK(wa),'indices in range');
-check(op.ni===op.quads*6&&op.n===op.quads*4*7,'opaque index/vertex bookkeeping consistent');
+check(op.ni===op.quads*6&&op.n===op.quads*4*10,'opaque index/vertex bookkeeping consistent');
+// normals unit-length (stride 10, normal at offset 7)
+{let bad=0;for(let v=0;v<op.n;v+=10){
+  const l=Math.hypot(op.V[v+7],op.V[v+8],op.V[v+9]);
+  if(Math.abs(l-1)>1e-3)bad++;}
+ check(bad===0,`vertex normals unit length (${bad} bad)`);}
 
 // ---- cutaway meshes ----
 for(const a of[0.5,1.0]){
