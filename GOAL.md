@@ -36,7 +36,7 @@ Known defect to carry forward: **some trees mesh incorrectly** (see A.4).
 
 ## Phase 0 — Probes 🔄 (first, before any chunk code)
 
-- **0.1 ⬜ Icosphere decision probe** — resolves the old open goal 1.6 (pick the
+- **0.1 🔄 Icosphere decision probe** — resolves the old open goal 1.6 (pick the
   grid). Minimal one-file orbital artifact (`icosphere-planet.html`): hex-prism
   terrain from the same Perlin heightfield, real MC textures on caps + sides,
   the 12 pentagons visibly marked, a few dug-out cells to show prism stacking,
@@ -44,6 +44,9 @@ Known defect to carry forward: **some trees mesh incorrectly** (see A.4).
   planet. *Verifier:* answers by eyeball — do square textures survive on hex
   caps, and does a hex world still read as Minecraft-like? **Decision gate:**
   the winner's addressing scheme becomes the chunk format in Phase B.
+  **Built 2026-07-02** (+ `icosphere-check.mjs`: mesh watertight, 0 unmatched
+  edges; ~286k quads at subdiv 6 ≈ Build 1's budget; click = dig, shift-click =
+  un-dig; digging below sea level floods). **Awaiting Bailey's eyeball verdict.**
 - **0.2 ⬜ Raymarched clouds probe** — independent, anytime (artifact or git
   branch). Planet as a simple sphere + raymarched volumetric cloud shell, sun
   slider, quality dial, fps counter. *Verifier:* holds ~60fps at acceptable

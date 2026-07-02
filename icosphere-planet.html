@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<!--
+  icosphere-planet.html — Goal 0.1: the ICOSPHERE DECISION PROBE.
+
+  Question this artifact answers (by eyeball, vs cubed-sphere planet.html):
+    1. Do square Minecraft textures survive on hexagonal prism caps?
+    2. Does a hex-prism world still read as "Minecraft-like"?
+
+  GRID — Goldberg polyhedron: subdivide an icosahedron, take the dual. Every
+  vertex of the triangulation becomes a tile: hexagons everywhere except the
+  12 original icosa vertices, which become PENTAGONS (marked magenta here).
+  Tile corners are the centroids of the faces around each vertex, so caps and
+  walls share exact corner vectors — the surface is watertight by construction.
+
+  TERRAIN — same seeded 3D Perlin fbm as planet.html (continents + ridged
+  mountains), amplitude rescaled to this grid's block width so proportions
+  match Build 1. Prism columns of constant shell thickness dr ≈ hex width
+  (cube-ish cells); no onion, no caves — out of scope for the probe.
+
+  TEXTURES — real MC 16px tiles from the same embedded set as planet.html.
+  Caps: the square texture is projected onto the tile's tangent plane and
+  radially CROPPED by the hexagon (each tile in its own rotated frame — seams
+  don't align on purpose; that's the honest experiment). Sides: prism walls
+  are plain rectangles, one quad per shell, textured exactly like Minecraft.
+
+  DIG — click a tile to dig one shell, shift-click to put it back. A demo pit
+  is pre-dug at load so prism stacking is visible without interacting.
+-->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Icosphere Planet — grid decision probe</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#07080d;
+    font:13px/1.45 -apple-system,'Segoe UI',sans-serif;color:#cdd6f4;}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab;}
+  #gl.drag{cursor:grabbing;}
+  #panel{position:fixed;top:10px;left:10px;background:rgba(17,19,29,0.88);
+    border:1px solid #2a2e42;border-radius:10px;padding:12px 14px;width:230px;
+    backdrop-filter:blur(6px);z-index:10;}
+  h1{font-size:14px;margin:0 0 2px;}
+  .sub{color:#7f849c;font-size:11px;margin-bottom:8px;}
+  .sec{margin:10px 0 4px;font-size:11px;text-transform:uppercase;
+    letter-spacing:0.07em;color:#89b4fa;}
+  label{display:block;margin:6px 0 2px;color:#a6adc8;}
+  select,input[type=number]{width:100%;box-sizing:border-box;border-radius:6px;
+    border:1px solid #363b54;background:#1e2030;color:#bac2de;padding:4px 6px;}
+  button{border-radius:6px;border:1px solid #363b54;background:#1e2030;
+    color:#bac2de;cursor:pointer;font-size:12px;padding:4px 10px;}
+  button:hover{background:#2a2e42;}
+  .row{display:flex;gap:6px;align-items:center;}
+  .stat{color:#a6adc8;} .stat b{color:#f9e2af;font-weight:600;}
+  .pent{color:#f5c2e7;}
+  .hint{margin-top:10px;color:#7f849c;font-size:11px;}
+  a{color:#89b4fa;text-decoration:none;} a:hover{text-decoration:underline;}
+  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(7,8,13,0.7);z-index:20;font-size:15px;color:#cdd6f4;}
+  #load.off{display:none;}
+</style></head><body>
+<canvas id="gl"></canvas>
+<div id="panel">
+  <h1>Icosphere planet</h1>
+  <div class="sub">grid decision probe — GOAL 0.1</div>
+  <label>resolution (subdivisions)</label>
+  <select id="subdiv">
+    <option value="4">4 — 2,562 tiles</option>
+    <option value="5" selected>5 — 10,242 tiles</option>
+    <option value="6">6 — 40,962 tiles</option>
+  </select>
+  <label>seed</label>
+  <div class="row"><input id="seed" type="number" value="7"><button id="dice">🎲</button></div>
+  <label class="row" style="margin-top:8px"><input id="spin" type="checkbox" checked> slow spin (day/night)</label>
+  <div class="sec">Stats</div>
+  <div class="stat">tiles <b id="tiles">—</b> · <span class="pent">pentagons <b>12</b></span></div>
+  <div class="stat">quads <b id="quads">—</b> · fps <b id="fps">—</b></div>
+  <div class="stat">block width <b id="bw">—</b></div>
+  <div class="hint">drag to rotate · scroll/pinch to zoom<br>
+    <b>click = dig</b> · <b>shift-click = un-dig</b><br>
+    pentagons are tinted <span class="pent">magenta</span></div>
+  <div class="hint">compare: <a href="planet.html">cubed-sphere planet</a> · <a href="index.html">all demos</a></div>
+</div>
+<div id="load">building icosphere…</div>
+
+<script>
+const TEX_SRC={
+  grass_block_top: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAB90lEQVR42j2Tx87qUAyEzyOz+em9915F750NAiQ2IPFgvvpGyl2EJCe2p3hw3W7Xfr+fdTody+fzuhqNhiUSCatWqzabzazf71u5XLZCoWClUsn2+735fD6r1Wrmer2eCheLhQ0GAxuNRpZMJnVPp9MadDwebbfbCQQw6hlWqVTMrddrTYrFYpbNZoVQLBat2WzqguF8PrfD4WDX61WNgUBAIM/n05zf77dcLieKMGi1WkJnYLvdFoNMJiMQviMPZGRQ41arlQqYzv1yudjtdhMLnt/vt/39/QmRpvP5bPF4XN/lAWjD4dCCwaB0plIpmYY34/FYlHmmAQDqeK7X65LnmDaZTGy73UoztClEEvTxhSGPx0OMkAgTT47jh4LpdCptDIlGo7bZbNRMoWce7KhnY952HNOgiqOn00koFNIEs/v9rnNWCjsMZ53kA/YOBD6+Xi+Zwo7xhCaMAxnaNIOIdobCBCAHOtMYhA8Mgw2FIH2/XwuFQtKNNzRi4n8P0AldIkyo+MAZiISKd55hFolEhI5+MoDRjj1TBB0OWCuU0RoOh3XGO3eaSCVMYUWfo5GYkkiQKGII5+R+uVxKCjXIZQNI4J3A6b9AEVo9iqSNkNCI0wSJC0Mx0ls5LBxUSR5T0cz+2YI3ADM/n4+yQTP+kBXqMf8fm1m5bOHB3EYAAAAASUVORK5CYII=",
+  grass_block_side: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABX0lEQVQ4y3VSSUuDQQydXyN48OhCse4LVg+KFhcUaxXrMqJiFbwoIvKBIBQFexFcEHexrlAQix68+KOeJJCPNG0PmWSyvJdkxqXfYtj46MPaaw9mrxpZlp86MXlaC//Qhq2vIY4v3LUgdR3F/G0zps7r0Z+pwtJjO9z6ey8n7ufHsJMbwO7LIEaj1Zi7aULyooGBjn6mkSkkmISKKZ/AFu9b4Q4+J7jg5M9j5jLCDHRfyXWxpg63C3EcfieR/U2xbzhbg8RZHduODu89X0hWn7tDm4Q6IE3tkt6MR8IY2e7Yx9ggnd8b54D4dLIQSW4IIEnk1GC6UIOJTUKEjg7tDIKgKEHi2tZEzibrTnQ35fwMYJ1aS8u2WMecXYrdshU7itOMdmYBFr8eRXblys2lGejp9Aj6mfkjWacFqSTSVdEIJOmRjpLFyRiyF/1azibpDev5LVEJgP0DsqRK7y8E/2kQKqQTbHIJAAAAAElFTkSuQmCC",
+  grass_block_side_overlay: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAeElEQVQ4T+2NsQrAIAxE/WtHUdxUUARXZwcXfzDtXRFa6Cd4IPHlLokaY0jOWVprEmOUzajo4fXeyahrLbHW8g9PwXgPIqBugZ1zZATBtVbWnQ8hiOKWWwh672mAsWwv2tfmnOxprZ/rfyqlfAxjDDml9D9wdHREXc8PflIHcVV8AAAAAElFTkSuQmCC",
+  dirt: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA0UlEQVR42nWSsQ1CMQxEvQ4rINFR0SOBxAgpaRgA/Q3YhelAF+mi9+/nF1YS2zn7zq7v+/H7tEu31/XYbea7nw6ruM/SRYlM0HtZluEzIO+KycporsI3qzGHeSW01tpwsJukkl0MAAcV0GdyJ6AKpa/cVlZyq9SG9yFicpR4TKDipOmzMjnH525m/g6QTp5uOT8zNt2D5J68SaVyPORsYPtJxVrVjBcraHSkwDH3TUxnguyZu1pRkD1v541wpjHb0MokKkz+WWgDkDtgkfbm7wJ/9oUoq3qXqFkAAAAASUVORK5CYII=",
+  stone: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAnklEQVQ4y4VTQRIAMQTzXA9w7xM8uXti0jS6B8OYEiK1zNxoa60dETsiOnb3I4dmFWABPypz925Wbw1REImRp8Y9Aa5QnvM4bZlhZ0YrzzxhjTGiMl6pfGaeEzAKxuMVsDsjvNbrBqwBReC0Yp9R8aCKlejM3S8h8UossOOMarTX2LyuKYLUn2Apl7fpE03MY+6a4CWmiUj7U5/iBME+eeR3wyunqoUAAAAASUVORK5CYII=",
+  sand: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAzUlEQVQ4T32SMQ5CMQxDc34OwAW4ADOsbAyIgQVGkBgQZwA50qtMSP9QxU1Tx04bz8f+cz1tct1v24yXw3rgWY59CEAAVqTgvFslptH7dcycsHIBK4VeXFdtIBxIQpbLJTp2oiRgI2kz/8R6OWfQJVl+5go9H+4Zb1JT/TK4Oos/BUuvwt4bjhm4T+TyMi6/Wgtng8C7CiO/zmpYoKAbnF+g1s/DO81I6Oa1w4Inug8ji3oVz/0o6D5NtbT0oaIW0G12WeRO1CqouW5GxC8MukyobCbS7QAAAABJRU5ErkJggg==",
+  snow: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAkUlEQVQ4y41SQQrAIAzL/1+7207qqFCJWeomFCFNYm2Lu/ehJ7DET/kIjOJE8mpthuJ84yRUAzXbDE7CFEfol6CEJDGxEk+DJCuJyZlXbBlod7n8ahppCCW6cp04Y5uCe92ZcZOhIJesjXUVQhOn0WX+tYnVurJB1Ru7iSrgKDfxS6yVrik40Imr3sC98lcc8QAnD/SlZeYNcAAAAABJRU5ErkJggg==",
+  water_still: "data:image/png;base64,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",
+};
+</script>
+
+<script>
+/*==GEN==*/  // pure geometry + worldgen + meshing; no DOM, no GL
+const GEN=(()=>{
+'use strict';
+const nm=v=>{const l=Math.hypot(v[0],v[1],v[2]);return[v[0]/l,v[1]/l,v[2]/l];};
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+
+// ---- seeded rng + 3D Perlin (same as planet.html) ----
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;
+  return((t^t>>>14)>>>0)/4294967296;};}
+function makePerlin(seed){
+  const rnd=mulberry32(seed),p=new Uint8Array(512),src=new Uint8Array(256);
+  for(let i=0;i<256;i++)src[i]=i;
+  for(let i=255;i>0;i--){const j=(rnd()*(i+1))|0,t=src[i];src[i]=src[j];src[j]=t;}
+  for(let i=0;i<512;i++)p[i]=src[i&255];
+  const fade=t=>t*t*t*(t*(t*6-15)+10);
+  function grad(h,x,y,z){const g=h&15;
+    const u=g<8?x:y, v=g<4?y:(g===12||g===14?x:z);
+    return((g&1)?-u:u)+((g&2)?-v:v);}
+  return function(x,y,z){
+    const X=Math.floor(x)&255,Y=Math.floor(y)&255,Z=Math.floor(z)&255;
+    x-=Math.floor(x);y-=Math.floor(y);z-=Math.floor(z);
+    const u=fade(x),v=fade(y),w=fade(z);
+    const A=p[X]+Y,AA=p[A]+Z,AB=p[A+1]+Z,B=p[X+1]+Y,BA=p[B]+Z,BB=p[B+1]+Z;
+    const l=(a,b,t)=>a+t*(b-a);
+    return l(l(l(grad(p[AA],x,y,z),grad(p[BA],x-1,y,z),u),
+               l(grad(p[AB],x,y-1,z),grad(p[BB],x-1,y-1,z),u),v),
+             l(l(grad(p[AA+1],x,y,z-1),grad(p[BA+1],x-1,y,z-1),u),
+               l(grad(p[AB+1],x,y-1,z-1),grad(p[BB+1],x-1,y-1,z-1),u),v),w);};
+}
+
+// ---- atlas tiles (8x1 runtime atlas) ----
+const T={GRASS:0,GSIDE:1,DIRT:2,STONE:3,SAND:4,SNOW:5,WATER:6};
+const ATLAS_COLS=8;
+function tileRect(t){return[(t*16+0.5)/(ATLAS_COLS*16),0.5/16,15/(ATLAS_COLS*16),15/16];}
+
+// ---- Goldberg grid: icosahedron -> subdivide -> dual ----
+function buildGrid(subdiv){
+  const PHI=(1+Math.sqrt(5))/2;
+  let v=[[-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],[0,-1,PHI],[0,1,PHI],
+    [0,-1,-PHI],[0,1,-PHI],[PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1]].map(nm);
+  let f=[[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],
+    [10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],
+    [6,2,10],[8,6,7],[9,8,1]];
+  for(let s=0;s<subdiv;s++){const mid=new Map(),nf=[];
+    const gm=(a,b)=>{const k=a<b?a*4194304+b:b*4194304+a;
+      if(mid.has(k))return mid.get(k);
+      const m=nm([v[a][0]+v[b][0],v[a][1]+v[b][1],v[a][2]+v[b][2]]);v.push(m);
+      mid.set(k,v.length-1);return v.length-1;};
+    for(const[a,b,c]of f){const ab=gm(a,b),bc=gm(b,c),ca=gm(c,a);
+      nf.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);}f=nf;}
+  // face centroids = tile corners
+  const FC=f.map(([a,b,c])=>nm([v[a][0]+v[b][0]+v[c][0],
+    v[a][1]+v[b][1]+v[c][1],v[a][2]+v[b][2]+v[c][2]]));
+  // vertex -> adjacent faces; edge (a,b) -> its two faces
+  const VF=Array.from({length:v.length},()=>[]);
+  const EF=new Map();
+  const ek=(a,b)=>a<b?a*4194304+b:b*4194304+a;
+  f.forEach((tri,fi)=>{
+    for(const vi of tri)VF[vi].push(fi);
+    for(let e=0;e<3;e++){const k=ek(tri[e],tri[(e+1)%3]);
+      if(EF.has(k))EF.get(k).push(fi);else EF.set(k,[fi]);}});
+  // tiles: corners sorted CCW (viewed from outside) in a tangent frame
+  const tiles=v.map((dir,vi)=>{
+    const p=Math.abs(dir[1])<0.9?[0,1,0]:[1,0,0];
+    const e1=nm(cross(p,dir)),e2=cross(dir,e1);
+    const corners=VF[vi]
+      .map(fi=>({fi,a:Math.atan2(dot(FC[fi],e2),dot(FC[fi],e1))}))
+      .sort((x,y)=>x.a-y.a).map(o=>FC[o.fi]);
+    return{dir,e1,e2,corners,pent:VF[vi].length===5,edges:[]};});
+  // per-tile neighbor edges; wall corners = the 2 faces flanking edge (a,b)
+  for(const[k,fs]of EF){
+    const a=(k/4194304)|0,b=k%4194304;
+    const c1=FC[fs[0]],c2=FC[fs[1]];
+    tiles[a].edges.push({nb:b,c1,c2});
+    tiles[b].edges.push({nb:a,c1,c2});}
+  return tiles;
+}
+
+// ---- planet: grid + terrain ----
+function init(seed,subdiv){
+  const tiles=buildGrid(subdiv);
+  const nT=tiles.length;
+  // block width across flats from equal-area hexes; shells are dr thick
+  const area=4*Math.PI/nT,W=Math.sqrt(area/0.866),dr=W;
+  const k=(Math.PI/256)/dr;                 // amplitude rescale vs Build 1
+  const SEA=Math.max(6,Math.round(57*k));
+  const minH=Math.max(2,SEA-Math.round(53*k)),maxH=SEA+Math.max(4,Math.round(25*k));
+  const radius=s=>1+(s-SEA)*dr;
+  const per=makePerlin(seed);
+  const fbm=(x,y,z,fq,oct)=>{let a=0.5,s=0,n=0;
+    for(let o=0;o<oct;o++){s+=a*per(x*fq,y*fq,z*fq);n+=a;fq*=2;a*=0.5;}return s/n;};
+  const H=new Int16Array(nT);
+  for(let t=0;t<nT;t++){
+    const[x,y,z]=tiles[t].dir;
+    const cont=fbm(x,y,z,1.5,4);
+    const mmask=fbm(x+31.4,y+47.2,z+12.9,3.1,3);
+    const ridge=1-Math.abs(fbm(x+91.3,y+13.7,z+55.1,4.8,4));
+    let hR=cont*26+1.2;
+    const mm=Math.min(1,Math.max(0,(mmask-0.02)/0.5));
+    hR+=mm*mm*ridge*ridge*22;
+    H[t]=Math.max(minH,Math.min(maxH,SEA-1+Math.round(hR*k)));}
+  const delta=new Int16Array(nT);            // dug (+) / restored (-) shells
+  // direction -> tile lookup: lat/lon buckets, dilated at build time
+  const LB=Math.max(48,Math.round(Math.PI/dr)),BB=LB*2;
+  const buck=Array.from({length:LB*BB},()=>[]);
+  const bIdx=d=>{
+    const la=Math.min(LB-1,Math.max(0,Math.floor((Math.asin(Math.max(-1,Math.min(1,d[1])))/Math.PI+0.5)*LB)));
+    const lo=((Math.floor((Math.atan2(d[2],d[0])/(2*Math.PI)+0.5)*BB))%BB+BB)%BB;
+    return[la,lo];};
+  for(let t=0;t<nT;t++){const[la,lo]=bIdx(tiles[t].dir);
+    for(let dl=-1;dl<=1;dl++)for(let dm=-1;dm<=1;dm++){
+      const l2=la+dl;if(l2<0||l2>=LB)continue;
+      buck[l2*BB+((lo+dm)%BB+BB)%BB].push(t);}}
+  function lookup(d){
+    const[la,lo]=bIdx(d);const cand=buck[la*BB+lo];
+    let best=-1,bd=-2;
+    for(const t of cand){const dd=dot(tiles[t].dir,d);if(dd>bd){bd=dd;best=t;}}
+    if(best<0){for(let t=0;t<nT;t++){const dd=dot(tiles[t].dir,d);
+      if(dd>bd){bd=dd;best=t;}}}
+    return best;}
+  return{seed,subdiv,tiles,nT,W,dr,k,SEA,minH,maxH,radius,H,delta,lookup};
+}
+
+const effH=(P,t)=>P.H[t]-P.delta[t];
+// cap band thresholds (in shells above sea), scaled like Build 1's biomes
+function capTile(P,t){
+  const d=P.delta[t];
+  if(d<0)return T.STONE;                              // player-restored block
+  if(d>0)return d<=Math.max(2,Math.round(3*P.k))?T.DIRT:T.STONE;  // dug floor
+  const hRel=effH(P,t)-P.SEA;
+  if(hRel<=0)return T.SAND;
+  if(hRel<=Math.max(2,Math.round(9*P.k)))return T.GRASS;
+  if(hRel<=Math.max(3,Math.round(15*P.k)))return T.STONE;
+  return T.SNOW;}
+function sideBaseTile(P,t){
+  switch(capTile(P,t)){case T.GRASS:return T.GSIDE;case T.SAND:return T.SAND;
+    case T.SNOW:return T.SNOW;default:return T.STONE;}}
+// wall material of tile t's column at shell s (s counts up from the core)
+function wallTile(P,t,s){
+  const oh=P.H[t],ds=oh-s;
+  if(ds<0)return T.STONE;                              // restored above terrain
+  if(ds===0)return sideBaseTile(P,t)===T.GSIDE&&P.delta[t]<=0?T.GSIDE:sideBaseTile(P,t);
+  return ds<=Math.max(2,Math.round(3*P.k))?T.DIRT:T.STONE;}
+
+// ---- mesher: interleaved [x y z u v shade pent nx ny nz], u32 indices ----
+function MB(){return{V:new Float32Array(1<<16),n:0,I:new Uint32Array(1<<14),ni:0,quads:0};}
+function push(mb,vals){
+  if(mb.n+vals.length>mb.V.length){const nv=new Float32Array(mb.V.length*2);
+    nv.set(mb.V);mb.V=nv;}
+  mb.V.set(vals,mb.n);mb.n+=vals.length;}
+function idx(mb,vals){
+  if(mb.ni+vals.length>mb.I.length){const ni=new Uint32Array(mb.I.length*2);
+    ni.set(mb.I);mb.I=ni;}
+  mb.I.set(vals,mb.ni);mb.ni+=vals.length;}
+
+function buildMesh(P){
+  const op=MB(),wa=MB();
+  const UVPAD=1.22;                    // hex circumradius / inradius headroom
+  for(let t=0;t<P.nT;t++){
+    const tl=P.tiles[t],eh=effH(P,t),capR=P.radius(eh+1);
+    // ---- cap: square texture projected on the tangent frame, hex-cropped
+    const rect=tileRect(capTile(P,t)),pent=tl.pent?1:0;
+    const base=op.n/10,nc=tl.corners.length;
+    for(let i=0;i<nc;i++){const c=tl.corners[i];
+      const rel=sub(c,tl.dir);
+      const u=0.5+dot(rel,tl.e1)/(UVPAD*P.W),vv=0.5+dot(rel,tl.e2)/(UVPAD*P.W);
+      push(op,[c[0]*capR,c[1]*capR,c[2]*capR,
+        rect[0]+Math.min(1,Math.max(0,u))*rect[2],
+        rect[1]+Math.min(1,Math.max(0,vv))*rect[3],
+        1.0,pent,tl.dir[0],tl.dir[1],tl.dir[2]]);}
+    for(let i=1;i<nc-1;i++){idx(op,[base,base+i,base+i+1]);op.quads++;}
+    // ---- walls: one quad per exposed shell per edge (per-shell textures)
+    for(const e of tl.edges){
+      const nh=effH(P,e.nb);
+      if(nh>=eh)continue;
+      // outward-facing winding: away from the tile center
+      let c1=e.c1,c2=e.c2;
+      const cm=nm([c1[0]+c2[0],c1[1]+c2[1],c1[2]+c2[2]]);
+      const out=sub(cm,tl.dir);
+      const along=sub(c2,c1),n0=cross(along,tl.dir);   // horiz normal if c1->c2 CCW
+      if(dot(n0,out)<0){const tmp=c1;c1=c2;c2=tmp;}
+      const wn=nm(cross(sub(c2,c1),tl.dir));
+      for(let s=nh+1;s<=eh;s++){
+        const rLo=P.radius(s),rHi=P.radius(s+1),wr=tileRect(wallTile(P,t,s));
+        const b2=op.n/10;
+        push(op,[c1[0]*rHi,c1[1]*rHi,c1[2]*rHi,wr[0],wr[1],0.82,pent,wn[0],wn[1],wn[2]]);
+        push(op,[c2[0]*rHi,c2[1]*rHi,c2[2]*rHi,wr[0]+wr[2],wr[1],0.82,pent,wn[0],wn[1],wn[2]]);
+        push(op,[c2[0]*rLo,c2[1]*rLo,c2[2]*rLo,wr[0]+wr[2],wr[1]+wr[3],0.82,pent,wn[0],wn[1],wn[2]]);
+        push(op,[c1[0]*rLo,c1[1]*rLo,c1[2]*rLo,wr[0],wr[1]+wr[3],0.82,pent,wn[0],wn[1],wn[2]]);
+        idx(op,[b2,b2+2,b2+1,b2,b2+3,b2+2]);op.quads++;}}
+    // ---- water cap at sea level over submerged tiles
+    if(eh<P.SEA){
+      const wrc=tileRect(T.WATER),bw=wa.n/10;
+      for(let i=0;i<nc;i++){const c=tl.corners[i];
+        const rel=sub(c,tl.dir);
+        const u=0.5+dot(rel,tl.e1)/(UVPAD*P.W),vv=0.5+dot(rel,tl.e2)/(UVPAD*P.W);
+        push(wa,[c[0],c[1],c[2],
+          wrc[0]+Math.min(1,Math.max(0,u))*wrc[2],
+          wrc[1]+Math.min(1,Math.max(0,vv))*wrc[3],
+          1.0,0,tl.dir[0],tl.dir[1],tl.dir[2]]);}
+      for(let i=1;i<nc-1;i++){idx(wa,[bw,bw+i,bw+i+1]);wa.quads++;}}}
+  return{op,wa};
+}
+
+// ---- ray -> tile (march the ray, compare radius to column height) ----
+function raycast(P,eye,rd){
+  const RMAX=P.radius(P.maxH+2);
+  const b=dot(eye,rd),c=dot(eye,eye)-RMAX*RMAX;
+  const disc=b*b-c;if(disc<0)return -1;
+  let tt=Math.max(0,-b-Math.sqrt(disc));
+  const step=P.dr*0.3,tEnd=-b+Math.sqrt(disc);
+  for(;tt<=tEnd;tt+=step){
+    const p=[eye[0]+rd[0]*tt,eye[1]+rd[1]*tt,eye[2]+rd[2]*tt];
+    const rr=Math.hypot(p[0],p[1],p[2]);
+    if(rr<P.radius(2))return -1;
+    if(rr>RMAX)continue;
+    const tile=P.lookup(nm(p));
+    if(rr<=P.radius(effH(P,tile)+1))return tile;}
+  return -1;}
+
+// demo pit: stepped hole near a grassy tile so stacking shows at load
+function demoPit(P){
+  let best=-1,bd=-2;const aim=nm([0.35,0.45,0.82]);
+  for(let t=0;t<P.nT;t++){
+    if(capTile(P,t)!==T.GRASS)continue;
+    const dd=dot(P.tiles[t].dir,aim);if(dd>bd){bd=dd;best=t;}}
+  if(best<0)return;
+  const deep=Math.min(4,effH(P,best)-2);
+  P.delta[best]=deep;
+  P.tiles[best].edges.forEach((e,i)=>{
+    P.delta[e.nb]=Math.max(P.delta[e.nb],Math.min(i%2?1:2,effH(P,e.nb)-2));});}
+
+return{T,tileRect,init,effH,buildMesh,raycast,demoPit,capTile};
+})();
+</script>
+
+<script>
+'use strict';
+// ===== mat4 (same hand-rolled math as planet.html) =====
+function perspective(f,a,n,fr){const t=1/Math.tan(f/2),nf=1/(n-fr);
+  return[t/a,0,0,0,0,t,0,0,0,0,(fr+n)*nf,-1,0,0,2*fr*n*nf,0];}
+function mul(a,b){const o=new Array(16);for(let r=0;r<4;r++)for(let c=0;c<4;c++)
+  o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o;}
+function rotX(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];}
+function rotY(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];}
+function translate(x,y,z){return[1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1];}
+const vnorm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];};
+const rotYv=(v,a)=>{const c=Math.cos(a),s=Math.sin(a);
+  return[c*v[0]+s*v[2],v[1],-s*v[0]+c*v[2]];};
+
+// ===== gl =====
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl',{antialias:true,preserveDrawingBuffer:true});
+if(!gl)alert('WebGL not available');
+if(!gl.getExtension('OES_element_index_uint'))alert('OES_element_index_uint missing');
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(o);return o;}
+function prog(vs,fs){const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));
+  gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw gl.getProgramInfoLog(p);return p;}
+
+const mainP=prog(`
+  attribute vec3 aPos;attribute vec2 aUV;attribute vec2 aSC;attribute vec3 aNrm;
+  uniform mat4 uMVP;uniform vec3 uSun;
+  varying vec2 vUV;varying vec3 vL;varying float vPent;
+  void main(){
+    vUV=aUV;vPent=aSC.y;
+    vec3 rd=normalize(aPos);
+    float dd=dot(rd,uSun);
+    float dayA=smoothstep(-0.10,0.14,dd);
+    vec3 sunCol=mix(vec3(1.30,0.60,0.26),vec3(1.04,1.00,0.94),smoothstep(0.02,0.34,dd));
+    float dif=max(dot(aNrm,uSun),0.0);
+    // brighter day ambient than planet.html: 1-shell hex walls otherwise go
+    // near-black on the away-from-sun side and read as holes
+    vec3 amb=mix(vec3(0.055,0.075,0.14),vec3(0.52,0.54,0.58),dayA);
+    vL=(amb+sunCol*(dif*0.72*dayA))*aSC.x;
+    gl_Position=uMVP*vec4(aPos,1.);}`,`
+  precision mediump float;
+  uniform sampler2D uT;uniform float uAlpha;
+  varying vec2 vUV;varying vec3 vL;varying float vPent;
+  void main(){
+    vec4 c=texture2D(uT,vUV);
+    vec3 col=c.rgb*vL;
+    col=mix(col,vec3(0.96,0.35,0.78)*max(vL,vec3(0.25)),vPent*0.38);
+    gl_FragColor=vec4(col,uAlpha);}`);
+const U={};
+for(const n of['uMVP','uSun','uT','uAlpha'])U[n]=gl.getUniformLocation(mainP,n);
+const aPos=gl.getAttribLocation(mainP,'aPos'),aUV=gl.getAttribLocation(mainP,'aUV'),
+      aSC=gl.getAttribLocation(mainP,'aSC'),aNrm=gl.getAttribLocation(mainP,'aNrm');
+
+const starP=prog(`
+  attribute vec3 aPos;attribute float aS;uniform mat4 uMVP;varying float vS;
+  void main(){gl_Position=uMVP*vec4(aPos,1.);gl_PointSize=aS;vS=aS;}`,`
+  precision mediump float;varying float vS;
+  void main(){vec2 d=gl_PointCoord-vec2(0.5);float r=dot(d,d);
+    if(r>0.25)discard;gl_FragColor=vec4(0.85,0.88,1.0,1.0-r*2.6);}`);
+const sU=gl.getUniformLocation(starP,'uMVP');
+const sPosA=gl.getAttribLocation(starP,'aPos'),sSA=gl.getAttribLocation(starP,'aS');
+
+function upload(mb){
+  const vbo=gl.createBuffer(),ibo=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+  gl.bufferData(gl.ARRAY_BUFFER,mb.V.subarray(0,mb.n),gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mb.I.subarray(0,mb.ni),gl.STATIC_DRAW);
+  return{vbo,ibo,count:mb.ni,quads:mb.quads};}
+function freeMesh(m){if(!m)return;gl.deleteBuffer(m.vbo);gl.deleteBuffer(m.ibo);}
+function drawMesh(m,alpha){
+  if(!m||!m.count)return;
+  gl.uniform1f(U.uAlpha,alpha);
+  gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo);
+  gl.enableVertexAttribArray(aPos);gl.vertexAttribPointer(aPos,3,gl.FLOAT,false,40,0);
+  gl.enableVertexAttribArray(aUV);gl.vertexAttribPointer(aUV,2,gl.FLOAT,false,40,12);
+  gl.enableVertexAttribArray(aSC);gl.vertexAttribPointer(aSC,2,gl.FLOAT,false,40,20);
+  gl.enableVertexAttribArray(aNrm);gl.vertexAttribPointer(aNrm,3,gl.FLOAT,false,40,28);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.ibo);
+  gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);}
+
+// ===== texture atlas (8x1, tinted like planet.html) =====
+const TINT={grass:'#91BD59',water:'#3F76E4'};
+function loadImg(src){return new Promise((res,rej)=>{const im=new Image();
+  im.onload=()=>res(im);im.onerror=rej;im.src=src;});}
+async function buildAtlas(){
+  const keys=Object.keys(TEX_SRC),imgs={};
+  await Promise.all(keys.map(async k=>{imgs[k]=await loadImg(TEX_SRC[k]);}));
+  const cv=document.createElement('canvas');cv.width=128;cv.height=16;
+  const ctx=cv.getContext('2d');
+  const tmp=document.createElement('canvas');tmp.width=16;tmp.height=16;
+  const tctx=tmp.getContext('2d');
+  function tinted(img,hex){
+    tctx.clearRect(0,0,16,16);
+    tctx.globalCompositeOperation='source-over';
+    tctx.drawImage(img,0,0,16,16,0,0,16,16);
+    tctx.globalCompositeOperation='multiply';
+    tctx.fillStyle=hex;tctx.fillRect(0,0,16,16);
+    tctx.globalCompositeOperation='destination-in';
+    tctx.drawImage(img,0,0,16,16,0,0,16,16);
+    return tmp;}
+  const TT=GEN.T;
+  const at=(t,draw)=>{ctx.save();ctx.translate(t*16,0);draw();ctx.restore();};
+  const D=img=>ctx.drawImage(img,0,0,16,16,0,0,16,16);
+  at(TT.GRASS,()=>D(tinted(imgs.grass_block_top,TINT.grass)));
+  at(TT.GSIDE,()=>{D(imgs.grass_block_side);D(tinted(imgs.grass_block_side_overlay,TINT.grass));});
+  at(TT.DIRT,()=>D(imgs.dirt));
+  at(TT.STONE,()=>D(imgs.stone));
+  at(TT.SAND,()=>D(imgs.sand));
+  at(TT.SNOW,()=>D(imgs.snow));
+  at(TT.WATER,()=>{D(tinted(imgs.water_still,TINT.water));
+    ctx.globalCompositeOperation='destination-over';
+    ctx.fillStyle='#1a3d8f';ctx.fillRect(0,0,16,16);});
+  const tex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return tex;}
+
+// ===== stars =====
+const starMesh=(()=>{
+  const R=50,COUNT=750,rnd=(s=>()=>{s|=0;s=s+0x6D2B79F5|0;
+    let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;
+    return((t^t>>>14)>>>0)/4294967296;})(99);
+  const V=new Float32Array(COUNT*4);
+  for(let i=0;i<COUNT;i++){
+    const z=rnd()*2-1,a=rnd()*2*Math.PI,r=Math.sqrt(1-z*z);
+    V[i*4]=Math.cos(a)*r*R;V[i*4+1]=z*R;V[i*4+2]=Math.sin(a)*r*R;
+    V[i*4+3]=1+rnd()*2;}
+  const vbo=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,V,gl.STATIC_DRAW);
+  return{vbo,count:COUNT};})();
+
+// ===== state =====
+let P=null,mTerr=null,mWater=null,atlasTex=null;
+const loadEl=document.getElementById('load');
+const subdivEl=document.getElementById('subdiv'),seedEl=document.getElementById('seed');
+
+function remesh(){
+  const{op,wa}=GEN.buildMesh(P);
+  freeMesh(mTerr);freeMesh(mWater);
+  mTerr=upload(op);mWater=upload(wa);
+  document.getElementById('quads').textContent=(mTerr.quads+mWater.quads).toLocaleString();}
+
+function regenerate(){
+  loadEl.classList.remove('off');
+  setTimeout(()=>{
+    P=GEN.init(+seedEl.value,+subdivEl.value);
+    GEN.demoPit(P);
+    remesh();
+    document.getElementById('tiles').textContent=P.nT.toLocaleString();
+    document.getElementById('bw').textContent=P.W.toFixed(4)+' (cubed: 0.0123)';
+    loadEl.classList.add('off');
+  },30);}
+subdivEl.addEventListener('change',regenerate);
+seedEl.addEventListener('change',regenerate);
+document.getElementById('dice').onclick=()=>{
+  seedEl.value=(Math.random()*1e6)|0;regenerate();};
+
+// ===== orbit camera + click-dig =====
+let yaw=0.55,pitch=-0.35,dist=5.0,drag=false,lx=0,ly=0,downX=0,downY=0;
+let theta=0.5;
+const spinEl=document.getElementById('spin');
+canvas.addEventListener('mousedown',e=>{drag=true;canvas.classList.add('drag');
+  lx=downX=e.clientX;ly=downY=e.clientY;});
+window.addEventListener('mouseup',e=>{
+  if(drag&&Math.hypot(e.clientX-downX,e.clientY-downY)<5)clickDig(e);
+  drag=false;canvas.classList.remove('drag');});
+window.addEventListener('mousemove',e=>{if(!drag)return;
+  const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+  yaw+=dx*0.01;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*0.01));});
+canvas.addEventListener('wheel',e=>{e.preventDefault();
+  dist=Math.max(1.25,Math.min(9,dist*(1+e.deltaY*0.001)));},{passive:false});
+let pinch=0;
+function tdist(t){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;
+  return Math.hypot(dx,dy);}
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches;
+  if(t.length===1){drag=true;lx=t[0].clientX;ly=t[0].clientY;}
+  else if(t.length===2){drag=false;pinch=tdist(t);}},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches;
+  if(t.length===1&&drag){const dx=t[0].clientX-lx,dy=t[0].clientY-ly;
+    lx=t[0].clientX;ly=t[0].clientY;
+    yaw+=dx*0.01;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*0.01));}
+  else if(t.length===2){const d=tdist(t);
+    if(pinch)dist=Math.max(1.25,Math.min(9,dist*(pinch/d)));pinch=d;}},{passive:false});
+canvas.addEventListener('touchend',()=>{drag=false;pinch=0;});
+
+function camEye(){ // inverse of view = translate(-d)·rotX(pitch)·rotY(yaw)
+  return[-dist*Math.sin(yaw)*Math.cos(pitch),dist*Math.sin(pitch),
+         dist*Math.cos(yaw)*Math.cos(pitch)];}
+function clickDig(e){
+  if(!P)return;
+  const dpr=Math.min(devicePixelRatio||1,2);
+  const px=e.clientX*dpr,py=e.clientY*dpr;
+  const asp=canvas.width/canvas.height,fov=0.9;
+  const ndcX=px/canvas.width*2-1,ndcY=1-py/canvas.height*2;
+  const th=Math.tan(fov/2);
+  const eyeW=camEye();
+  // camera basis (matches the view matrix below)
+  const fw=vnorm([-eyeW[0],-eyeW[1],-eyeW[2]]);
+  const rt=vnorm([-fw[2],0,fw[0]]);                    // cross(fw, worldUp)
+  const up=[rt[1]*fw[2]-rt[2]*fw[1],rt[2]*fw[0]-rt[0]*fw[2],rt[0]*fw[1]-rt[1]*fw[0]];
+  const rdW=vnorm([fw[0]+ndcX*th*asp*rt[0]+ndcY*th*up[0],
+                   fw[1]+ndcX*th*asp*rt[1]+ndcY*th*up[1],
+                   fw[2]+ndcX*th*asp*rt[2]+ndcY*th*up[2]]);
+  // to planet frame (planet spins by rotY(theta))
+  const eye=rotYv(eyeW,-theta),rd=rotYv(rdW,-theta);
+  const tile=GEN.raycast(P,eye,rd);
+  if(tile<0)return;
+  if(e.shiftKey)P.delta[tile]=Math.max(P.delta[tile]-1,P.H[tile]-P.maxH);
+  else P.delta[tile]=Math.min(P.delta[tile]+1,P.H[tile]-2);
+  remesh();}
+
+// expose for automated verification
+window.PROBE={get P(){return P;},GEN,remesh,digAt:(t,n)=>{P.delta[t]+=n;remesh();},
+  cam:(y,p,d)=>{if(y!=null)yaw=y;if(p!=null)pitch=p;if(d!=null)dist=d;},
+  get theta(){return theta;},set theta(v){theta=v;},
+  cull:on=>on?gl.enable(gl.CULL_FACE):gl.disable(gl.CULL_FACE)};
+
+function resize(){const dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr;
+  gl.viewport(0,0,canvas.width,canvas.height);}
+window.addEventListener('resize',resize);
+
+// ===== frame loop =====
+gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);
+gl.clearColor(0.027,0.031,0.051,1);
+const SUNW=vnorm([1,0.35,0]);
+let lastT=0,fpsEMA=60,fpsTick=0;
+const fpsEl=document.getElementById('fps');
+function frame(t){
+  requestAnimationFrame(frame);
+  const dt=Math.min((t-lastT)/1000,0.1);lastT=t;
+  if(dt>0){fpsEMA=fpsEMA*0.95+(1/dt)*0.05;
+    if((fpsTick++&15)===0)fpsEl.textContent=fpsEMA.toFixed(0);}
+  if(spinEl.checked)theta+=dt*0.08;
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  if(!P)return;
+  const asp=canvas.width/canvas.height;
+  const proj=perspective(0.9,asp,0.02,120);
+  const view=mul(mul(translate(0,0,-dist),rotX(pitch)),rotY(yaw));
+  // stars (world frame)
+  gl.useProgram(starP);
+  gl.uniformMatrix4fv(sU,false,new Float32Array(mul(proj,view)));
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);gl.depthMask(false);
+  gl.bindBuffer(gl.ARRAY_BUFFER,starMesh.vbo);
+  gl.enableVertexAttribArray(sPosA);gl.vertexAttribPointer(sPosA,3,gl.FLOAT,false,16,0);
+  gl.enableVertexAttribArray(sSA);gl.vertexAttribPointer(sSA,1,gl.FLOAT,false,16,12);
+  gl.drawArrays(gl.POINTS,0,starMesh.count);
+  gl.depthMask(true);gl.disable(gl.BLEND);
+  // planet (model = rotY(theta)); sun expressed in the planet frame
+  const mvp=mul(mul(proj,view),rotY(theta));
+  const sunP=rotYv(SUNW,-theta);
+  gl.useProgram(mainP);
+  gl.uniformMatrix4fv(U.uMVP,false,new Float32Array(mvp));
+  gl.uniform3f(U.uSun,sunP[0],sunP[1],sunP[2]);
+  gl.uniform1i(U.uT,0);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlasTex);
+  drawMesh(mTerr,1.0);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(false);
+  drawMesh(mWater,0.62);
+  gl.depthMask(true);gl.disable(gl.BLEND);
+  // leave no mainP attribs enabled for the next frame's star drawArrays
+  for(const a of[aPos,aUV,aSC,aNrm])gl.disableVertexAttribArray(a);
+}
+
+(async()=>{
+  atlasTex=await buildAtlas();
+  resize();regenerate();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body></html>
