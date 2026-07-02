@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<!--
+  game.html — the modular build (Phase A.1). Same planet as Build 1
+  (cubed-sphere-planet.html), split into plain ES modules under src/.
+  Needs http:// (ES modules), not file://.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voxel Sphere — Game</title>
+<style>
+  html,body{margin:0;height:100%;background:#07080d;overflow:hidden;
+    font-family:ui-monospace,Menlo,monospace;color:#cdd6f4;}
+  canvas#gl{display:block;width:100vw;height:100vh;cursor:grab;}
+  canvas#gl:active{cursor:grabbing;}
+  #ui{position:fixed;top:16px;left:16px;background:rgba(18,20,28,.86);
+    padding:14px 16px;border-radius:12px;font-size:13px;line-height:1.55;
+    user-select:none;width:262px;max-height:calc(100vh - 32px);overflow:auto;}
+  h1{font-size:13px;margin:0 0 10px;color:#89b4fa;letter-spacing:.5px;}
+  .sec{margin:12px 0 4px;font-size:11px;text-transform:uppercase;
+    letter-spacing:.8px;color:#7f849c;}
+  .btn{display:inline-block;margin:2px 4px 2px 0;padding:4px 9px;border-radius:7px;
+    background:#1e2030;color:#bac2de;cursor:pointer;font-size:12px;}
+  .btn:hover{background:#2a2d3f;}
+  input[type=range]{width:100%;vertical-align:middle;margin:4px 0;}
+  input[type=number]{width:92px;background:#1e2030;border:1px solid #2a2d3f;
+    color:#cdd6f4;border-radius:6px;padding:3px 6px;font:inherit;}
+  label{display:block;font-size:12px;}
+  label.row{display:flex;align-items:center;gap:6px;}
+  b{color:#89b4fa;}
+  small.hint{color:#7f849c;display:block;margin-top:10px;}
+  .stat{font-size:12px;color:#bac2de;}
+  .stat b{color:#f9e2af;}
+  #uitoggle{cursor:pointer;user-select:none;}
+  #chev{float:right;transition:transform .15s;color:#7f849c;}
+  #ui.collapsed #uibody{display:none;}
+  #ui.collapsed h1{margin-bottom:0;}
+  #ui.collapsed #chev{transform:rotate(-90deg);}
+  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(7,8,13,.75);font-size:15px;color:#89b4fa;letter-spacing:.5px;
+    z-index:9;pointer-events:none;}
+  #load.off{display:none;}
+  /* mode toggle + first-person HUD */
+  .fab{position:fixed;background:rgba(18,20,28,.86);color:#cdd6f4;border-radius:12px;
+    padding:10px 14px;font-size:14px;cursor:pointer;user-select:none;z-index:8;
+    -webkit-user-select:none;touch-action:none;}
+  .fab:active{background:#2a2d3f;}
+  #modeBtn{top:16px;right:16px;}
+  #fpui{display:none;}
+  body.fp #fpui{display:block;}
+  #joy{position:fixed;left:26px;bottom:26px;width:120px;height:120px;border-radius:50%;
+    background:rgba(18,20,28,.5);border:2px solid rgba(137,180,250,.35);z-index:8;
+    touch-action:none;}
+  #joyk{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;
+    border-radius:50%;background:rgba(137,180,250,.55);}
+  #btnJump{right:26px;bottom:26px;font-size:20px;padding:14px 18px;}
+  #btnDown{right:26px;bottom:92px;font-size:20px;padding:14px 18px;display:none;}
+  body.fly #btnDown{display:block;}
+  #btnFly{right:96px;bottom:26px;font-size:16px;padding:16px;}
+  body.fly #btnFly{background:#45507a;}
+</style>
+</head>
+<body>
+<div id="ui" class="collapsed">
+  <h1 id="uitoggle" onclick="document.getElementById('ui').classList.toggle('collapsed')">VOXEL SPHERE · PLANET <span id="chev">▾</span></h1>
+  <div id="uibody">
+
+  <div class="sec">Planet seed</div>
+  <label class="row"><input id="seed" type="number" value="1337">
+    <span class="btn" id="dice">🎲 new</span></label>
+
+  <div class="sec">Cutaway — strata · caves · ores · core</div>
+  <label class="cut">cutaway <b id="cutval">0%</b>
+    <input id="cut" type="range" min="0" max="100" value="0"></label>
+
+  <div class="sec">Sun &amp; time</div>
+  <label>time of day <b id="todval">—</b>
+    <input id="tod" type="range" min="0" max="240" value="20"></label>
+  <label>planet spin <b id="spdval">—</b>
+    <input id="spd" type="range" min="0" max="100" value="35"></label>
+
+  <div class="sec">View</div>
+  <label class="row"><input id="spin" type="checkbox" checked> auto orbit (orbital view)</label>
+
+  <div class="sec">Stats</div>
+  <div class="stat">surface quads <b id="qv">—</b></div>
+  <div class="stat">cutaway quads <b id="cq">0</b></div>
+  <div class="stat">columns <b id="cols">—</b> · trees <b id="trees">—</b></div>
+  <div class="stat">fps <b id="fps">—</b></div>
+
+  <small class="hint" id="hint">drag to rotate · scroll or pinch to zoom · two-finger drag to pan</small>
+  </div>
+</div>
+<div id="modeBtn" class="fab">🚶 explore surface</div>
+<div id="fpui">
+  <div id="joy"><div id="joyk"></div></div>
+  <div id="btnJump" class="fab">⭡</div>
+  <div id="btnDown" class="fab">⭣</div>
+  <div id="btnFly" class="fab">✈ fly</div>
+</div>
+<div id="load">⛏ generating planet…</div>
+<canvas id="gl"></canvas>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

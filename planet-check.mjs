@@ -1,11 +1,11 @@
-// planet-check.mjs — browser-free sanity check for planet.html.
+// planet-check.mjs — browser-free sanity check for cubed-sphere-planet.html (Build 1, frozen).
 // Extracts the pure /*==GEN==*/ block and verifies: cubed-sphere adjacency
 // (symmetric, 4-regular, geometrically local), terrain/biome distribution,
 // block & quad counts of the static shell, and the cutaway re-mesh.
 // Run: node planet-check.mjs [seed] [N]
 import{readFileSync}from'node:fs';
 
-const html=readFileSync(new URL('./planet.html',import.meta.url),'utf8');
+const html=readFileSync(new URL('./cubed-sphere-planet.html',import.meta.url),'utf8');
 const m=html.match(/\/\*==GEN==\*\/([\s\S]*?)\/\*==ENDGEN==\*\//);
 if(!m){console.error('FAIL: GEN block not found');process.exit(1);}
 const GEN=new Function(m[1]+'\nreturn GEN;')();

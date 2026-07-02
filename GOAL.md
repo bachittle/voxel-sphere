@@ -28,47 +28,62 @@ static meshing. Its one limit is the reason for everything below: the world is
 
 One-file artifacts stay in the repo as the walked-through thought process:
 `dots.html`, `cubed-sphere.html`, `heatmap.html`, `depth.html`, `demo.html`,
-and `planet.html` (to be renamed, see A.3). Don't grow them; freeze them.
+and `cubed-sphere-planet.html` (renamed from `planet.html`, A.3 ✅). Don't grow
+them; freeze them.
 
-Known defect to carry forward: **some trees mesh incorrectly** (see A.4).
+Known defect carried forward from Build 1: **some trees meshed incorrectly** —
+diagnosed and fixed in the modular build (A.4 ✅).
 
 ---
 
 ## Phase 0 — Probes 🔄 (first, before any chunk code)
 
-- **0.1 🔄 Icosphere decision probe** — resolves the old open goal 1.6 (pick the
-  grid). Minimal one-file orbital artifact (`icosphere-planet.html`): hex-prism
-  terrain from the same Perlin heightfield, real MC textures on caps + sides,
-  the 12 pentagons visibly marked, a few dug-out cells to show prism stacking,
-  zoomable orbit camera for side-by-side comparison with the cubed-sphere
-  planet. *Verifier:* answers by eyeball — do square textures survive on hex
-  caps, and does a hex world still read as Minecraft-like? **Decision gate:**
-  the winner's addressing scheme becomes the chunk format in Phase B.
-  **Built 2026-07-02** (+ `icosphere-check.mjs`: mesh watertight, 0 unmatched
-  edges; ~286k quads at subdiv 6 ≈ Build 1's budget; click = dig, shift-click =
-  un-dig; digging below sea level floods). **Awaiting Bailey's eyeball verdict.**
+- **0.1 ✅ Icosphere decision probe — RESOLVED: cube wins (2026-07-02).**
+  Bailey's eyeball verdict on `icosphere-planet.html` vs the cubed-sphere
+  `planet.html`: **cube.** The Minecraft feel — square 16×16 textures on square
+  faces — beats the hexagon's better evenness. **The cubed-sphere per-face i,j
+  grid is now the canonical chunk format for Phase B and everything downstream.**
+  `icosphere-planet.html` is frozen as an archived probe artifact; the icosphere
+  gameplay-fairness edge is noted and shelved, not pursued. (Probe was built
+  2026-07-02 + `icosphere-check.mjs`: mesh watertight, 0 unmatched edges; ~286k
+  quads at subdiv 6 ≈ Build 1's budget; click = dig, shift-click = un-dig.)
 - **0.2 ⬜ Raymarched clouds probe** — independent, anytime (artifact or git
   branch). Planet as a simple sphere + raymarched volumetric cloud shell, sun
   slider, quality dial, fps counter. *Verifier:* holds ~60fps at acceptable
   quality on the M4 and looks right next to blocky terrain. Fallback if it
   fails: blocky textured cloud shell (D.3).
 
-## Phase A — Foundation ⬜
+## Phase A — Foundation 🔄
 
-- **A.1 ⬜ Promote to a real project** — split the monolith into plain ES
-  modules (`main.js`, `world.js`, `mesher.js`, `player.js`, …), no bundler, no
-  framework. Worldgen becomes a **pure function of (seed, cell)** with an edit
-  overlay on top — the shape that persistence (B.5) and chunked loading both
-  need. *Verifier:* the modular build renders the same planet as Build 1.
-- **A.2 ⬜ Go server** — small standalone Go service in-repo: serves the static
-  files (ES modules need http, not file://) and exposes `GET/PUT /world/:seed`
-  save-sync endpoints writing delta files to disk. No accounts. *Verifier:*
-  game loads from it; a saved delta round-trips.
-- **A.3 ⬜ Rename the artifact** — `planet.html` → `cubed-sphere-planet.html`
-  (or similar), frozen as Build 1. Update `index.html` hub + the voice card
-  pointer.
-- **A.4 ⬜ Fix the tree mesher bug** — some trees are visibly broken; fix while
-  the mesher is being modularized, before building on it.
+- **A.1 ✅ Promote to a real project (2026-07-02)** — `game.html` + plain ES
+  modules under `src/`: `worldgen.js` (pure), `mesher.js`, `world.js` (seed +
+  **edit overlay** — `blockAt()` answers edits → trees → worldgen), `player.js`,
+  `input.js`, `gl.js`, `math.js`, `textures.js`, `state.js`, `main.js`. No
+  bundler, no framework; needs http:// not file://. `window.VS` debug handle
+  for browser-automation tests (seeds S.5). *Verified:* `game-check.mjs` —
+  terrain/biomes/materials/water/cutaway/core meshes **byte-identical** to
+  Build 1's GEN block (3 seeds); orbital screenshots indistinguishable; FP
+  walk/collision works.
+- **A.2 ⬜ Static hosting (decided 2026-07-02: no Go server for now)** — the
+  whole game is static ES modules, so serve it from **GitHub Pages** to share
+  with friends; local dev via any static server (`python -m http.server`).
+  Save-sync moves to export/import (see B.5). A backend (the shelved Go
+  service) only returns if multiplayer needs it (S.7). *Verifier:* game.html
+  loads and runs from a Pages URL.
+- **A.3 ✅ Rename the artifact (2026-07-02)** — `planet.html` →
+  `cubed-sphere-planet.html`, frozen as Build 1; `index.html` hub +
+  `planet-check.mjs` updated. (The voice card is a standalone copy, not a
+  pointer — left as its own snapshot.)
+- **A.4 ✅ Fix the tree mesher bug (2026-07-02)** — diagnosed: Build 1 meshed
+  each tree in its own tangent frame, culling only against its own blocks, so
+  **adjacent trees interpenetrated with near-coincident coplanar faces**
+  (z-fighting; 523 overlapping pairs on seed 1337). Fix: trees now resolve to
+  **grid-aligned world cells** — `worldgen.js` bakes `treeCells: (col,shell) →
+  tile` (trunks win over leaves, cells inside terrain dropped), and the mesher
+  culls faces against other tree cells *and* terrain, so canopies merge like
+  Minecraft's. Bonus: trees are real voxel cells, ready for B.1 digging.
+  *Verified:* `game-check.mjs` quantized-coincidence test — Build 1 has 34–88
+  coincident quads per seed, modular build has **0**.
 
 ## Phase B — The Loop ⬜ (where it becomes a game)
 
@@ -90,8 +105,12 @@ Known defect to carry forward: **some trees mesh incorrectly** (see A.4).
   time of day, spin, cutaway, fps). Touch controls kept, auto-detected.
   *Verifier:* feels like a native FPS in the browser; mobile still works.
 - **B.5 ⬜ Persistence** — seed + edit deltas: localStorage per-seed
-  (automatic), synced through the Go backend (A.2). *Verifier:* build,
-  reload, it's there; wipe localStorage, it comes back from the server.
+  (automatic), plus **export/import** for sharing — a save is a small JSON
+  blob (seed + delta list), downloadable as a file; small ones can ride a URL
+  fragment so a friend loads your build from a link. Keep it behind a narrow
+  `saveDeltas()`/`loadDeltas()` interface so localStorage, file, URL, and a
+  someday-server are swappable. *Verifier:* build, reload, it's there; export
+  on one browser, import on another, same world.
 
 ## Phase C — Depth & Feel ⬜
 
@@ -132,7 +151,11 @@ Known defect to carry forward: **some trees mesh incorrectly** (see A.4).
   tests for chunk edits, browser-automation smoke tests.
 - **S.6 ⬜ Visitable moon / solar system** (old 5.1) — impostor→chunk LOD
   promotion, space flight between spheres. The Outer Wilds end-state.
-- **S.7 ⬜ Backend beyond saves** — accounts / sharing / multiplayer-someday.
+- **S.7 ⬜ Multiplayer-someday** — either a small backend (the shelved Go
+  server, needed for authoritative state / >2-3 players) or **peer-to-peer**
+  (WebRTC data channels — serverless gameplay traffic, but still needs
+  signaling: a tiny relay, PeerJS's public broker, or copy-paste offer/answer
+  blobs which works on pure GitHub Pages).
 
 ---
 
@@ -156,7 +179,9 @@ Depth — 3D nearest-neighbor spacing, max÷min through the solid sphere:
 
 ---
 
-*Demos:* `index.html` (hub), `demo.html` (unified geometry explorer),
-`dots.html`, `cubed-sphere.html`, `heatmap.html`, `depth.html`,
-`planet.html` → Build 1 (rename pending, A.3). *Checks:* `compute-ratio.mjs`,
-`measure-all.mjs`, `depth-measure.mjs`, `planet-check.mjs`.
+*Game:* `game.html` + `src/` (the modular build, A.1). *Demos:* `index.html`
+(hub), `demo.html` (unified geometry explorer), `dots.html`,
+`cubed-sphere.html`, `heatmap.html`, `depth.html`, `cubed-sphere-planet.html`
+→ Build 1 (frozen). *Checks:* `compute-ratio.mjs`, `measure-all.mjs`,
+`depth-measure.mjs`, `planet-check.mjs` (Build 1), `game-check.mjs` (modular
+vs Build 1), `icosphere-check.mjs`.
