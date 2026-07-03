@@ -33,7 +33,7 @@ function hash01(a,b){let h=Math.imul(a^0x9E3779B9,0x85EBCA6B);h^=h>>>13;
 // ---- atlas tiles (index into the 8x4 runtime atlas) ----
 const T={GRASS_P:0,GRASS_F:1,GSIDE_P:2,GSIDE_F:3,DIRT:4,STONE:5,SAND:6,GRAVEL:7,
   SNOW:8,GSNOW:9,LOG:10,LOG_TOP:11,LEAF:12,WATER:13,LAVA:14,
-  COAL:15,IRON:16,GOLD:17,DIAMOND:18,GLASS:19,TORCH:20};
+  COAL:15,IRON:16,GOLD:17,DIAMOND:18,GLASS:19,TORCH:20,BEDROCK:21};
 // biomes
 const B={OCEAN:0,BEACH:1,PLAINS:2,FOREST:3,DESERT:4,MOUNT:5,SNOWCAP:6,TUNDRA:7};
 const BIOME_NAMES=['ocean','beach','plains','forest','desert','mountain','snowcap','tundra'];
@@ -69,11 +69,15 @@ function init(seed,N){
       const l=Math.hypot(c[0],c[1],c[2]),col=f*n2+j*N+i;
       const x=c[0]/l,y=c[1]/l,z=c[2]/l;
       dir[col*3]=x;dir[col*3+1]=y;dir[col*3+2]=z;
-      // continents + ridged mountains
+      // continents + ridged mountains. E.1 (2026-07-03): the continent part
+      // is TERRACED — quantized to 4-shell bands with narrow ramps — so
+      // lowlands become broad, flat, buildable plateaus; the ridged mountain
+      // term is added un-terraced on top, so peaks stay jagged.
       const cont=fbm(x,y,z,1.5,4);
       const mmask=fbm(x+31.4,y+47.2,z+12.9,3.1,3);
       const ridge=1-Math.abs(fbm(x+91.3,y+13.7,z+55.1,4.8,4));
-      let hR=cont*26+1.2;
+      const tb=(cont*26+1.2)/4,tf=Math.floor(tb);
+      let hR=4*(tf+Math.min(1,Math.max(0,(tb-tf-0.5)/0.18+0.5)));
       const mm=Math.min(1,Math.max(0,(mmask-0.02)/0.5));
       hR+=mm*mm*ridge*ridge*22;
       const h=Math.max(4,Math.min(SEA+25,SEA-1+Math.round(hR)));
@@ -178,6 +182,7 @@ function mat(P,col,s){
   if(cv!==0)return cv===1?-1:cv-2;
   const h=P.H[col],d=h-s;let t;
   if(s<=1)t=T.LAVA;
+  else if(s===2)t=T.BEDROCK;             // C.2: the unbreakable cap, visible
   else if(d===0)t=topTile(P,col);
   else if(d<=3)t=underTile(P,col);
   else{

@@ -1,6 +1,8 @@
-// chunk-check.mjs — B.1 verifier: chunked mask-based meshing vs Build 1, and
-// incremental re-meshing vs full rebuild after edit scripts (the stale-
-// geometry / holes oracle). Run: node chunk-check.mjs [seed] [N]
+// chunk-check.mjs — B.1 verifier: chunked mask-based meshing vs the
+// monolithic buildStatic() over the SAME worldgen (self-consistent — survives
+// intentional worldgen changes), and incremental re-meshing vs full rebuild
+// after edit scripts (the stale-geometry / holes oracle).
+// Run: node chunk-check.mjs [seed] [N]
 import*as WG from'./src/worldgen.js';
 import*as MESH from'./src/mesher.js';
 import*as CH from'./src/chunks.js';
@@ -40,9 +42,9 @@ function buildAll(){const out=[];for(let id=0;id<NC;id++)out.push(CH.buildChunk(
   const ref=MESH.buildStatic(P);
   const chunksT=buildAll();
   check(msetEq(msetOf([ref.op]),msetOf(chunksT.map(c=>c.op))),
-    'terrain-only opaque face set identical to Build 1');
+    'terrain-only opaque face set identical to buildStatic');
   check(msetEq(msetOf([ref.wa]),msetOf(chunksT.map(c=>c.wa))),
-    'water face set identical to Build 1');
+    'water face set identical to buildStatic');
   P.treeCells=tc;P.trees=tr;
   CH.initChunks(P);
 }
