@@ -34,10 +34,17 @@ export const shellOf=r=>Math.floor((r-1)/world.P.dr+world.P.SEA+1e-9);
 export function groundR(d,fromS){
   const P=world.P,col=colOf(d);
   if(!world.editsByCol.has(col)&&!world.openMask.has(col))
-    return Math.max(P.radius(P.H[col]+1),P.radius(P.SEA));
+    return P.radius(P.H[col]+1);   // ocean ground = the floor; C.3 swims above
   let s=fromS===undefined?P.SH-1:Math.min(fromS,P.SH-1);
   for(;s>=0;s--)if(isSolid(col,s,false))return P.radius(s+1);
   return P.radius(0);
+}
+// is the player's cell open water? (static ocean: below sea surface in an
+// ocean column, not inside anything solid)
+export function inWater(){
+  const P=world.P,p=player,col=colOf(p.dir);
+  return p.r<P.radius(P.SEA)-0.02*P.dr&&P.H[col]<P.SEA-1&&
+         !isSolid(col,shellOf(p.r),false);
 }
 
 export function stepPlayer(dt){
@@ -65,15 +72,23 @@ export function stepPlayer(dt){
     const g=groundR(p.dir,shellOf(r));
     p.r=clampf(r,g,6);p.grounded=p.r<=g+1e-6;
   }else{
+    const swim=inWater();                 // C.3: buoyancy, drag, slow strokes
     if(mx||mz){ // horizontal walk, blocked by >half-block walls (jump to climb)
-      const k=WALK*dt;
+      const k=WALK*(swim?0.55:1)*dt;
       const nd=vnorm([up[0]*p.r+(h[0]*mz+right[0]*mx)*k,
                       up[1]*p.r+(h[1]*mz+right[1]*mx)*k,
                       up[2]*p.r+(h[2]*mz+right[2]*mx)*k]);
       if(groundR(nd,shellOf(p.r)+1)<=p.r+0.55*dr)p.dir=nd;
     }
-    if(jump&&p.grounded){p.vr=JV;p.grounded=false;}
-    p.vr-=G*dt;p.r+=p.vr*dt;
+    if(swim){
+      p.vr+=(jump?15*dr:down?-10*dr:-3.5*dr)*dt; // stroke up / dive / gentle sink
+      p.vr*=Math.max(0,1-4.5*dt);                 // water drag
+      p.grounded=false;
+    }else{
+      if(jump&&p.grounded){p.vr=JV;p.grounded=false;}
+      p.vr-=G*dt;
+    }
+    p.r+=p.vr*dt;
     if(p.vr>0){ // ceiling: don't jump up through a dug tunnel's roof
       const col=colOf(p.dir);
       if(world.editsByCol.has(col)||world.openMask.has(col)){

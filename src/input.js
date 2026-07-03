@@ -123,7 +123,8 @@ const modeBtn=document.getElementById('modeBtn'),hintEl=document.getElementById(
 function enterFP(){
   const dW=[-Math.sin(S.yaw)*Math.cos(S.pitch),Math.sin(S.pitch),Math.cos(S.yaw)*Math.cos(S.pitch)];
   const d=vnorm(rotYv(dW,-S.theta));     // planet-frame point facing the camera
-  player.dir=d;player.r=groundR(d);player.vr=0;player.pitch=0;
+  player.dir=d;player.vr=0;player.pitch=0;
+  player.r=Math.max(groundR(d),world.P.radius(world.P.SEA)); // ocean: spawn afloat
   player.grounded=true;player.fly=false;document.body.classList.remove('fly');
   let h=[0-d[1]*d[0],1-d[1]*d[1],0-d[1]*d[2]]; // world-north projected to tangent
   if(Math.hypot(...h)<0.1)h=[1-d[0]*d[0],-d[0]*d[1],-d[0]*d[2]];

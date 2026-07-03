@@ -195,8 +195,14 @@ against it, not against drag-look. B.5 last, as written.
   game-check/chunk-check — do we retire that oracle or keep bedrock
   invisible? *Verifier:* dig straight down; the last three shells won't
   break.
-- **C.3 ⬜ Swimming** — player cell is water → buoyancy, drag, swim controls,
-  against static water. *Verifier:* swim across an ocean; dive and surface.
+- **C.3 ✅ Swimming (2026-07-03)** — player cell is water → buoyancy, drag,
+  swim controls, against static water. Ocean columns' `groundR` is now the
+  ocean *floor* (walking-on-water removed); space = stroke up, shift = dive,
+  idle = gentle sink under drag, movement 0.55×; FP entry over ocean spawns
+  afloat at the surface. *Verified:* browser-automation via manual
+  `stepPlayer` stepping (rAF-independent) — dive 4 blocks/2s, idle sink
+  1.7 blocks/2s, swim-up surfaces, float settles ~1.4 deep, beach grounding
+  intact. *Bailey's verifier still open:* swim across an ocean by hand.
 
 ## Phase D — World & Sky ⬜
 
