@@ -33,7 +33,7 @@ function hash01(a,b){let h=Math.imul(a^0x9E3779B9,0x85EBCA6B);h^=h>>>13;
 // ---- atlas tiles (index into the 8x4 runtime atlas) ----
 const T={GRASS_P:0,GRASS_F:1,GSIDE_P:2,GSIDE_F:3,DIRT:4,STONE:5,SAND:6,GRAVEL:7,
   SNOW:8,GSNOW:9,LOG:10,LOG_TOP:11,LEAF:12,WATER:13,LAVA:14,
-  COAL:15,IRON:16,GOLD:17,DIAMOND:18};
+  COAL:15,IRON:16,GOLD:17,DIAMOND:18,GLASS:19,TORCH:20};
 // biomes
 const B={OCEAN:0,BEACH:1,PLAINS:2,FOREST:3,DESERT:4,MOUNT:5,SNOWCAP:6,TUNDRA:7};
 const BIOME_NAMES=['ocean','beach','plains','forest','desert','mountain','snowcap','tundra'];

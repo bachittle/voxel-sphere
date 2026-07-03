@@ -45,8 +45,13 @@ export function solidMask(P,col,w){
   if(tm){w[0]|=tm[0];w[1]|=tm[1];w[2]|=tm[2];}
   const ec=world.editsByCol.get(col);
   if(ec)for(const[s,t]of ec){const wi=s>>>5,b=1<<(s&31);
-    if(t<0)w[wi]&=~b;else w[wi]|=b;}
+    // glass & torch are non-occluding (B.3): out of the mask so the terrain
+    // behind them still meshes; they emit their own geometry in buildChunk
+    if(t<0||t===T.GLASS||t===T.TORCH)w[wi]&=~b;else w[wi]|=b;}
 }
+const bit=(m,s)=>(m[s>>>5]&(1<<(s&31)))!==0;
+const glassAt=(col,s)=>{const ec=world.editsByCol.get(col);
+  return ec!==undefined&&ec.get(s)===T.GLASS;};
 
 // explicit tile if the (solid) cell is an edit or tree cell, else -1 (natural)
 function ovTile(P,col,s){
@@ -121,6 +126,46 @@ export function buildChunk(P,id){
           cornerAt(P,f,c0i,c0j,ro,A);cornerAt(P,f,c1i,c1j,ro,Bp);
           cornerAt(P,f,c1i,c1j,ri,C);cornerAt(P,f,c0i,c0j,ri,D);
           emitQuad(op,A,Bp,C,D,ox,oy,oz,tile,tile===T.LAVA?1.5:0.82,Math.fround(dx*P.rc(s)));}
+      }
+    }
+    // non-occluding edit blocks (B.3): glass cubes + torch cross-sprites.
+    // These sit outside the solidity mask, so they emit their own geometry
+    // here; w / nw above still hold this column's and its neighbors' masks.
+    const ec=world.editsByCol.get(col);
+    if(ec)for(const[s,t]of ec){
+      if(t!==T.GLASS&&t!==T.TORCH)continue;
+      const ro=P.radius(s+1),ri=P.radius(s),cxv=Math.fround(dx*P.rc(s));
+      if(t===T.GLASS){
+        // radial caps, culled against solid or glass above/below
+        if(s+1>=SH||(!bit(w,s+1)&&!glassAt(col,s+1))){
+          cornerAt(P,f,i,j,ro,A);cornerAt(P,f,i+1,j,ro,Bp);
+          cornerAt(P,f,i+1,j+1,ro,C);cornerAt(P,f,i,j+1,ro,D);
+          emitQuad(op,A,Bp,C,D,dx,dy,dz,T.GLASS,1.0,cxv);}
+        if(s-1<0||(!bit(w,s-1)&&!glassAt(col,s-1))){
+          cornerAt(P,f,i,j,ri,A);cornerAt(P,f,i+1,j,ri,Bp);
+          cornerAt(P,f,i+1,j+1,ri,C);cornerAt(P,f,i,j+1,ri,D);
+          emitQuad(op,A,Bp,C,D,-dx,-dy,-dz,T.GLASS,0.82,cxv);}
+        // 4 sides, culled against solid or glass neighbors
+        for(let d=0;d<4;d++){
+          const n=neighbor(P,col,d),nm=nw.subarray(d*3,d*3+3);
+          if(bit(nm,s)||glassAt(n,s))continue;
+          const ox=P.dir[n*3]-dx,oy=P.dir[n*3+1]-dy,oz=P.dir[n*3+2]-dz;
+          const[[c0i,c0j],[c1i,c1j]]=edgeCorners(i,j,d);
+          cornerAt(P,f,c0i,c0j,ro,A);cornerAt(P,f,c1i,c1j,ro,Bp);
+          cornerAt(P,f,c1i,c1j,ri,C);cornerAt(P,f,c0i,c0j,ri,D);
+          emitQuad(op,A,Bp,C,D,ox,oy,oz,T.GLASS,0.82,cxv);}
+      }else{
+        // torch: two diagonal quads, each emitted both-sided (CULL_FACE on)
+        const q=(ai,aj,bi,bj)=>{
+          cornerAt(P,f,ai,aj,ro,A);cornerAt(P,f,bi,bj,ro,Bp);
+          cornerAt(P,f,bi,bj,ri,C);cornerAt(P,f,ai,aj,ri,D);
+          const e1=[Bp[0]-A[0],Bp[1]-A[1],Bp[2]-A[2]],
+                e2=[C[0]-A[0],C[1]-A[1],C[2]-A[2]],
+                n=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],
+                   e1[0]*e2[1]-e1[1]*e2[0]];
+          emitQuad(op,A,Bp,C,D,n[0],n[1],n[2],T.TORCH,1.0,cxv);
+          emitQuad(op,A,Bp,C,D,-n[0],-n[1],-n[2],T.TORCH,1.0,cxv);};
+        q(i,j,i+1,j+1);q(i+1,j,i,j+1);
       }
     }
   }

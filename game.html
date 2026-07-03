@@ -81,6 +81,16 @@
   #menuCard .btn.big:hover{background:#45507a;}
   select{background:#1e2030;border:1px solid #2a2d3f;color:#cdd6f4;
     border-radius:6px;padding:3px 6px;font:inherit;}
+  /* B.3 hotbar */
+  #hotbar{display:none;position:fixed;left:50%;bottom:14px;
+    transform:translateX(-50%);gap:4px;z-index:8;
+    background:rgba(18,20,28,.72);padding:5px;border-radius:10px;}
+  body.fp #hotbar{display:flex;}
+  #hotbar .slot{width:42px;height:42px;border:2px solid #2a2d3f;border-radius:8px;
+    background:rgba(30,32,48,.8);display:flex;align-items:center;
+    justify-content:center;cursor:pointer;}
+  #hotbar .slot.sel{border-color:#89b4fa;background:#2a3352;}
+  #hotbar .slot img{width:30px;height:30px;image-rendering:pixelated;}
 </style>
 </head>
 <body>
@@ -122,6 +132,7 @@
   <div id="btnFly" class="fab">✈ fly</div>
 </div>
 <div id="xh"></div>
+<div id="hotbar"></div>
 <div id="menu" class="off">
   <div id="menuCard">
     <h2>⏸ PAUSED</h2>

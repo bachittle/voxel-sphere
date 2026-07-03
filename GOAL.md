@@ -128,13 +128,21 @@ against it, not against drag-look. B.5 last, as written.
   limit; outline visible in screenshot. Caveat learned: rAF pauses in hidden
   tabs, so automation must keep the tab foregrounded (or drive updateTarget
   directly).
-- **B.3 ⬜ Break & place (creative)** — break = vanish, place = from hotbar,
-  unlimited. 9-slot hotbar (keys 1–9 / scroll): dirt, stone, sand, log,
-  leaves, glass*, torch* (*new block types). **Water & lava hotbar slots are
-  🚫 blocked on S.2 (cellular flow)** — placeable fluids need spreading to
-  make sense. Torch places **inert** until C.1 lights it (decided 2026-07-03) —
-  block type + placement land here, the glow is C.1's whole job. *Verifier:*
-  build a house; dig a shaft through a shell merge.
+- **B.3 ✅ Break & place, creative (2026-07-03)** — break = vanish, place =
+  from hotbar, unlimited. 9-slot hotbar (keys 1–9 / scroll / click): dirt,
+  stone, sand, log, leaves, glass*, torch* (*new block types, atlas tiles
+  19/20, hand-drawn 16×16 PNGs). **Water & lava hotbar slots stay 🚫 blocked
+  on S.2.** Torch places **inert** until C.1 lights it. Implementation notes:
+  glass & torch are *non-occluding* — excluded from the chunk solidity mask so
+  terrain behind them still meshes; glass emits cube faces culled against
+  solid/glass neighbors, torch emits double-sided cross-quads; torch is
+  walk-through (isSolid exception) but raycast-targetable; hotbar icons cut
+  from the composed atlas so tinted tiles look right (`hotbar.js`, ICONS in
+  `textures.js`). *Verified:* browser-automation — place/dig glass + torch,
+  hotbar key/scroll/click selection, anti-self-place, chunk remesh clean;
+  screenshot shows see-through glass + torch sprite. Node checks byte-
+  identical. *Bailey's verifier still open:* build a house; dig a shaft
+  through a shell merge.
 - **B.4 ✅ Desktop controls + menus (2026-07-03)** — Pointer Lock API (click to capture,
   raw-delta look), ESC → pause/settings menu (mouse sensitivity, invert Y,
   FOV, input-mode override), backtick → debug panel (the old dev sliders:

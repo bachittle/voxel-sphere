@@ -9,6 +9,9 @@ import{dig,place}from'./interact.js';
 import{vnorm,clampf,rotYv}from'./math.js';
 import{inputMode}from'./settings.js';
 import{openMenu,closeMenu,menuOpen,toggleDebug}from'./menu.js';
+import{select,cycle,selectedTile}from'./hotbar.js';
+
+const placeSel=()=>{const t=selectedTile();if(t!==null)place(t);};
 
 // ===== pointer lock (B.4 desktop mode) =====
 // FP desktop: click captures the mouse; ESC (browser-forced unlock) opens the
@@ -26,7 +29,7 @@ document.addEventListener('pointerlockchange',()=>{
 // a drag = look. Right-click = place. Locked FP: raw deltas, click digs.
 let lx=0,ly=0,downT=0,moved=1e9;
 canvas.addEventListener('mousedown',e=>{
-  if(locked()){if(e.button===0)dig();else if(e.button===2)place();return;}
+  if(locked()){if(e.button===0)dig();else if(e.button===2)placeSel();return;}
   S.drag=true;lx=e.clientX;ly=e.clientY;downT=performance.now();moved=0;});
 window.addEventListener('mouseup',e=>{S.drag=false;
   if(locked())return;
@@ -34,7 +37,7 @@ window.addEventListener('mouseup',e=>{S.drag=false;
     if(inputMode()==='desktop')lockPointer();else dig();}
   moved=1e9;});
 canvas.addEventListener('contextmenu',e=>{e.preventDefault();
-  if(!locked()&&S.mode==='fp'&&moved<5)place();});
+  if(!locked()&&S.mode==='fp'&&moved<5)placeSel();});
 window.addEventListener('mousemove',e=>{
   if(locked()){fpLook(e.movementX,e.movementY);return;}
   if(!S.drag)return;
@@ -42,7 +45,8 @@ window.addEventListener('mousemove',e=>{
   moved+=Math.abs(dx)+Math.abs(dy);
   if(S.mode==='fp'){fpLook(dx,dy);return;}
   S.yaw+=dx*0.01;S.pitch=Math.max(-1.5,Math.min(1.5,S.pitch+dy*0.01));});
-canvas.addEventListener('wheel',e=>{e.preventDefault();if(S.mode==='fp')return;
+canvas.addEventListener('wheel',e=>{e.preventDefault();
+  if(S.mode==='fp'){cycle(e.deltaY>0?1:-1);return;} // scroll = hotbar (B.3)
   S.dist=Math.max(1.6,Math.min(9,S.dist*(1+e.deltaY*0.001)));},{passive:false});
 
 // touch on canvas: orbital = rotate/pan/pinch · FP = look (joystick is separate)
@@ -72,6 +76,8 @@ window.addEventListener('keydown',e=>{
     menuOpen()?closeMenu():openMenu();return;}
   if(e.code==='Backquote'){toggleDebug();return;}
   if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  if(e.code.startsWith('Digit')){const n=+e.code[5];
+    if(n>=1&&n<=9){select(n-1);return;}}
   move.KEY[e.code]=true;
   if(S.mode==='fp'){
     if(e.code==='KeyF')toggleFly();

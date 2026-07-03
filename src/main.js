@@ -11,6 +11,7 @@ import{canvas,gl,mainP,U,starP,sU,sFade,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
        starMesh,ATM_R,upload,freeMesh,drawMesh,drawLines,resize}from'./gl.js';
 import{perspective,mul,rotX,rotY,translate,rotYv,rotXv,vdot,sstep,lookAtM}from'./math.js';
 import{SET}from'./settings.js';
+import{initHotbar}from'./hotbar.js';
 import'./menu.js';
 import'./input.js';
 
@@ -199,6 +200,7 @@ window.VS={S,world,player,chunks:CH,interact:INTERACT,
   const params=new URLSearchParams(location.search);
   if(params.has('seed'))seedEl.value=params.get('seed');
   atlasTex=await buildAtlas(gl);
+  initHotbar();
   resize();
   window.addEventListener('resize',resize);
   regenerate(+seedEl.value);

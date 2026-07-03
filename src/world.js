@@ -71,7 +71,7 @@ export function isSolid(col,s,withTrees=true){
   const P=world.P;
   if(s<0||s>=P.SH)return false;
   const e=world.edits.get(key(col,s));
-  if(e!==undefined)return e>=0;
+  if(e!==undefined)return e>=0&&e!==WG.T.TORCH; // torch: walk through (B.3)
   if(s>P.H[col])return withTrees&&P.treeCells.has(key(col,s));
   return !(isOpen(col,s)&&WG.mat(P,col,s)<0);
 }

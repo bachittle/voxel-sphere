@@ -5,7 +5,7 @@
 // SAME cached target, so the outlined cell is always the one that breaks.
 // (True DDA on a curved cubed-sphere grid isn't worth it — dr/16 sampling at
 // 5-block reach is 80 cheap lookups, and faces come free from cell deltas.)
-import{world,isSolid}from'./world.js';
+import{world,isSolid,blockAt}from'./world.js';
 import{player,colOf,shellOf}from'./player.js';
 import{T,neighbor}from'./worldgen.js';
 import{editBlock}from'./chunks.js';
@@ -44,7 +44,9 @@ export function raycast(maxBlocks=5){
     const pos=[eye[0]+fwd[0]*t,eye[1]+fwd[1]*t,eye[2]+fwd[2]*t];
     const c=cellAt(pos);
     if(!c)continue;
-    if(isSolid(c.col,c.s))return{hit:c,prev,face:faceFrom(c,prev)};
+    // torches are non-solid (walk-through) but still aimable/breakable
+    if(isSolid(c.col,c.s)||blockAt(c.col,c.s)===T.TORCH)
+      return{hit:c,prev,face:faceFrom(c,prev)};
     if(!prev||prev.col!==c.col||prev.s!==c.s)prev=c;
   }
   return null;
