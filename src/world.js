@@ -11,7 +11,8 @@
 import*as WG from'./worldgen.js';
 
 export const N=128;
-export const world={seed:0,P:null,edits:new Map(),editsByCol:new Map(),openMask:new Map()};
+export const world={seed:0,P:null,edits:new Map(),editsByCol:new Map(),openMask:new Map(),
+  rev:0};                              // bumped per edit; autosave watches it (B.5)
 
 export function generate(seed){
   world.seed=seed;
@@ -34,6 +35,7 @@ export function setBlock(col,s,tile){
   let ec=world.editsByCol.get(col);
   if(!ec){ec=new Map();world.editsByCol.set(col,ec);}
   ec.set(s,tile);
+  world.rev++;
 }
 export function clearEdits(){
   world.edits.clear();world.editsByCol.clear();world.openMask.clear();}

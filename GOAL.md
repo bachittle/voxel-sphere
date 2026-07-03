@@ -91,7 +91,7 @@ diagnosed and fixed in the modular build (A.4 ✅).
   tense: cube won), groups the studies, and updates the scores line to state
   the *decisions* rather than the horse race. Re-edit one card per milestone.
 
-## Phase B — The Loop 🔄 (where it becomes a game)
+## Phase B — The Loop ✅ (it became a game, 2026-07-03)
 
 **Order (decided 2026-07-03 grilling): B.4 → B.2 → B.3.** Pointer-lock aiming
 changes the feel of looking so much that the crosshair (B.2) should be tuned
@@ -157,9 +157,17 @@ against it, not against drag-look. B.5 last, as written.
   pointerLockElement — headless refuses real lock, so **the FPS feel needs
   Bailey's hands**). *Verifier:* feels like a native FPS in the browser;
   mobile still works.
-- **B.5 ⬜ Persistence** — **principle (2026-07-03): localStorage first;
+- **B.5 ✅ Persistence (2026-07-03)** — **principle: localStorage first;
   export/import files second; a backend only if neither suffices.**
-  Seed + edit deltas: localStorage per-seed
+  Shipped as `persistence.js` (the narrow interface as specced): per-seed
+  localStorage autosave (1.2s debounce off `world.rev`), export/import JSON
+  file, `#save=` URL fragment (menu warns >8KB → use export), reset-world.
+  openMask isn't serialized — re-flooding dig edits rebuilds it. Pause menu
+  gained a World section; import/reset reach `regenerate` via CustomEvents.
+  *Verified:* browser-automation — save/reload roundtrip, share-link load
+  with cleared localStorage (the "friend" flow), import-becomes-local-save,
+  reset. Node checks pass.
+  Original spec: seed + edit deltas: localStorage per-seed
   (automatic), plus **export/import** for sharing — a save is a small JSON
   blob (seed + delta list), downloadable as a file; small ones can ride a URL
   fragment so a friend loads your build from a link. Keep it behind a narrow

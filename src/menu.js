@@ -4,6 +4,7 @@
 import{S}from'./state.js';
 import{canvas}from'./gl.js';
 import{SET,saveSettings,inputMode}from'./settings.js';
+import{exportFile,shareURL,serialize}from'./persistence.js';
 
 const menuEl=document.getElementById('menu');
 const uiEl=document.getElementById('ui');
@@ -46,4 +47,31 @@ fov.addEventListener('input',()=>{SET.fov=+fov.value;
 inp.addEventListener('change',()=>{SET.input=inp.value;saveSettings();
   applyInputMode();});
 document.getElementById('mResume').addEventListener('click',closeMenu);
+
+// ===== world save/share (B.5) — regenerate lives in main.js, reached by event
+const statusEl=document.getElementById('mStatus');
+const status=m=>{statusEl.textContent=m;setTimeout(()=>{
+  if(statusEl.textContent===m)statusEl.textContent='';},4000);};
+document.getElementById('mExport').addEventListener('click',()=>{
+  exportFile();status('save downloaded');});
+document.getElementById('mShare').addEventListener('click',()=>{
+  const url=shareURL();
+  if(url.length>8000){status('too many edits for a link — use export');return;}
+  navigator.clipboard.writeText(url)
+    .then(()=>status('link copied'))
+    .catch(()=>status('clipboard blocked — use export'));});
+document.getElementById('mReset').addEventListener('click',()=>{
+  window.dispatchEvent(new CustomEvent('vs-reset'));status('world reset');});
+const fileEl=document.getElementById('mFile');
+document.getElementById('mImport').addEventListener('click',()=>fileEl.click());
+fileEl.addEventListener('change',async()=>{
+  const f=fileEl.files[0];fileEl.value='';
+  if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(d.v!==1||!Array.isArray(d.edits))throw 0;
+    window.dispatchEvent(new CustomEvent('vs-import',{detail:d}));
+    status('imported seed '+d.seed);
+  }catch(e){status('not a voxel-sphere save');}});
+
 reflect();applyInputMode();

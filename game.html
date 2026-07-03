@@ -78,6 +78,7 @@
   #menuCard label{margin:10px 0;}
   #menuCard .btn.big{display:block;text-align:center;padding:9px;font-size:14px;
     margin:0 0 8px;background:#2a3352;}
+  #menuCard .sec{margin-top:14px;}
   #menuCard .btn.big:hover{background:#45507a;}
   select{background:#1e2030;border:1px solid #2a2d3f;color:#cdd6f4;
     border-radius:6px;padding:3px 6px;font:inherit;}
@@ -148,6 +149,15 @@
         <option value="desktop">desktop</option>
         <option value="touch">touch</option>
       </select></label>
+    <div class="sec">World</div>
+    <div>
+      <span class="btn" id="mExport">⬇ export</span>
+      <span class="btn" id="mImport">⬆ import</span>
+      <span class="btn" id="mShare">🔗 copy link</span>
+      <span class="btn" id="mReset">🗑 reset</span>
+    </div>
+    <input id="mFile" type="file" accept="application/json" style="display:none">
+    <small class="hint" id="mStatus"></small>
     <small class="hint">ESC resume · ` debug panel</small>
   </div>
 </div>

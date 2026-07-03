@@ -12,6 +12,7 @@ import{canvas,gl,mainP,U,starP,sU,sFade,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
 import{perspective,mul,rotX,rotY,translate,rotYv,rotXv,vdot,sstep,lookAtM}from'./math.js';
 import{SET}from'./settings.js';
 import{initHotbar}from'./hotbar.js';
+import*as PERSIST from'./persistence.js';
 import'./menu.js';
 import'./input.js';
 
@@ -27,10 +28,13 @@ function freeChunks(){for(const c of chunkMs){freeMesh(c.op);freeMesh(c.wa);}chu
 function updateQv(){let q=0;for(const c of chunkMs)q+=c.op.quads+c.wa.quads;
   qvEl.textContent=q.toLocaleString();}
 
-function regenerate(seed){
+function regenerate(seed,importEdits){
   loadEl.classList.remove('off');
   setTimeout(()=>{
     const P=generate(seed);
+    // B.5: imported edits win (and become this seed's save); else local save
+    if(importEdits){PERSIST.applyDeltas(importEdits);PERSIST.saveDeltas();}
+    else PERSIST.loadDeltas(seed);
     CH.initChunks(P);CH.dirty.clear();
     freeChunks();freeMesh(mCore);
     for(let id=0;id<CH.numChunks(P);id++){
@@ -113,6 +117,7 @@ function frame(t){
   else if(spinEl.checked&&!S.drag&&!S.paused)S.yaw+=0.0011*dt*0.06;
   INTERACT.updateTarget(S.mode==='fp'&&!S.paused); // B.2: aimed-cell outline
   rebuildDirty();
+  autosave(t);
   if(cutDirty){cutDirty=false;rebuildCut();}
   const a=cutEl.value/100,clip=2-2*a;
   // per-mode matrices (terrain lives in the planet frame; stars in world frame)
@@ -191,8 +196,19 @@ function frame(t){
   }
 }
 
+// B.5 autosave: write the save 1.2s after the last edit settles
+let lastRev=0,saveAt=0;
+function autosave(t){
+  if(world.rev!==lastRev){lastRev=world.rev;saveAt=t+1200;}
+  if(saveAt&&t>=saveAt){saveAt=0;PERSIST.saveDeltas();}}
+// import/reset requests from the pause menu (menu.js can't reach regenerate)
+window.addEventListener('vs-import',e=>{
+  const d=e.detail;seedEl.value=d.seed;regenerate(d.seed,d.edits);});
+window.addEventListener('vs-reset',()=>{
+  PERSIST.clearSave(world.seed);regenerate(world.seed);});
+
 // debug/test handle (browser-automation smoke tests hook in here)
-window.VS={S,world,player,chunks:CH,interact:INTERACT,
+window.VS={S,world,player,chunks:CH,interact:INTERACT,persist:PERSIST,
   edit:(col,s,tile)=>CH.editBlock(col,s,tile)};
 
 // ===== boot =====
@@ -203,6 +219,8 @@ window.VS={S,world,player,chunks:CH,interact:INTERACT,
   initHotbar();
   resize();
   window.addEventListener('resize',resize);
-  regenerate(+seedEl.value);
+  const frag=PERSIST.fragmentSave();     // B.5: a share link loads its world
+  if(frag){seedEl.value=frag.seed;regenerate(frag.seed,frag.edits);}
+  else regenerate(+seedEl.value);
   requestAnimationFrame(frame);
 })();
