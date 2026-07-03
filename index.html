@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Voxel Sphere</title>
 <style>
-  :root{--bg:#07080d;--card:#12141c;--card2:#1a1d27;--ink:#cdd6f4;--mut:#7f849c;--accent:#89b4fa;}
+  :root{--bg:#07080d;--card:#12141c;--card2:#1a1d27;--ink:#cdd6f4;--mut:#7f849c;--accent:#89b4fa;--gold:#f9e2af;}
   *{box-sizing:border-box;}
   html,body{margin:0;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,Menlo,monospace;-webkit-font-smoothing:antialiased;}
@@ -15,7 +15,7 @@
   header p{color:var(--mut);font-size:14px;line-height:1.6;margin:0 0 4px;max-width:660px;}
   .lead{color:var(--ink);}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-    gap:16px;margin-top:30px;}
+    gap:16px;margin-top:22px;}
   a.card{display:block;text-decoration:none;color:inherit;background:var(--card);
     border:1px solid #20232f;border-radius:14px;padding:18px 18px 16px;
     transition:transform .12s ease,border-color .12s ease,background .12s ease;}
@@ -23,6 +23,12 @@
   .card .tag{font-size:11px;color:var(--accent);letter-spacing:.7px;text-transform:uppercase;}
   .card h2{font-size:17px;margin:6px 0 6px;}
   .card p{font-size:13px;color:var(--mut);line-height:1.55;margin:0;}
+  a.card.play{grid-column:1/-1;padding:26px 24px 22px;
+    background:linear-gradient(135deg,#101c33,#12141c 70%);border-color:#33507e;}
+  a.card.play:hover{border-color:var(--accent);}
+  .card.play .tag{color:var(--gold);}
+  .card.play h2{font-size:26px;margin:8px 0;}
+  .card.play p{font-size:14px;max-width:640px;}
   .card.feat{grid-column:1/-1;background:linear-gradient(135deg,#161a2b,#12141c);
     border-color:#2b3147;}
   .card.feat h2{font-size:21px;}
@@ -31,69 +37,82 @@
   footer{margin-top:44px;color:var(--mut);font-size:12px;line-height:1.7;}
   footer code{color:#bac2de;background:#161823;padding:1px 6px;border-radius:5px;}
   .scores{margin-top:10px;font-size:12px;color:var(--mut);}
-  .scores b{color:#f9e2af;}
+  .scores b{color:var(--gold);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1><span class="v">Voxel</span> Sphere</h1>
-    <p class="lead">A from-scratch WebGL voxel world where the world is a finite
+    <p class="lead">A from-scratch WebGL voxel game where the world is a finite
       <b>sphere</b> instead of a flat grid — "down" is toward a molten core, "up"
       is out to the sky.</p>
-    <p>These demos work through <b>Goal 1 — The Geometry</b>: how to tile a sphere
-      with even, addressable cells, on the surface and through its depth.</p>
+    <p>Direction: a Minecraft-style creative sandbox — dig through the onion,
+      build on the curve. Roadmap in <code>GOAL.md</code>.</p>
   </header>
 
+  <div class="grid">
+    <a class="card play" href="game.html">
+      <div class="tag">▶ The game · Phase B in progress</div>
+      <h2>Play Voxel Sphere</h2>
+      <p>The live modular build: chunked, editable terrain — dig shafts, hollow
+        out cave pockets, place blocks — with biomes, oceans, trees, day/night,
+        and first-person radial gravity. Everything below is the archaeology
+        that led here.</p>
+    </a>
+  </div>
+
+  <div class="sec">Frozen builds</div>
   <div class="grid">
     <a class="card feat" href="cubed-sphere-planet.html">
       <div class="tag">Build 1 · frozen artifact</div>
       <h2>Voxel Planet</h2>
-      <p>A full Minecraft-style planet on the cubed sphere: seeded noise terrain,
+      <p>The original one-file planet on the cubed sphere: seeded noise terrain,
         oceans · beaches · forests · deserts · snow-capped mountains, oak trees,
-        and a cutaway that carves down through strata, caves and ore veins to the
-        molten lava core. Real 1.20.1 block textures, biome-tinted.</p>
+        and a cutaway carving down through strata, caves and ore veins to the
+        molten core. Real 1.20.1 textures, biome-tinted. Immutable — the reason
+        the modular build exists.</p>
     </a>
     <a class="card feat" href="icosphere-planet.html">
-      <div class="tag">★ New · Goal 0.1 · the grid decision probe</div>
+      <div class="tag">Probe 0.1 · resolved — cube won</div>
       <h2>Icosphere Planet</h2>
       <p>The same Perlin world rebuilt on the icosphere's hex grid: hex-prism
-        columns, real MC textures cropped onto hexagonal caps, the 12 pentagons
-        marked magenta, and click-to-dig to feel the prism stacking. Compare with
-        the cubed-sphere planet — this artifact decides which grid the game is
-        built on.</p>
-    </a>
-    <a class="card feat" href="demo.html">
-      <div class="tag">Goal 1 · everything in one place</div>
-      <h2>Geometry Explorer</h2>
-      <p>Every tiling and dial unified: switch between Lat/Long · Cubed · Fibonacci ·
-        Icosphere, color by distortion / region / depth shell, morph cube→sphere,
-        and toggle solid onion depth with a cutaway and live evenness score.</p>
+        columns, MC textures on hexagonal caps, the 12 pentagons marked magenta,
+        click-to-dig. The decision probe of 2026-07-02 — the hexes are more even,
+        but square textures on square faces <i>feel</i> like Minecraft, so the
+        cubed sphere is the game's canonical grid. Frozen as an archive.</p>
     </a>
   </div>
 
-  <div class="sec">Individual studies</div>
+  <div class="sec">Geometry studies</div>
   <div class="grid">
+    <a class="card" href="demo.html">
+      <div class="tag">Unified explorer</div>
+      <h2>Geometry Explorer</h2>
+      <p>Every tiling and dial in one place: Lat/Long · Cubed · Fibonacci ·
+        Icosphere, color by distortion / region / depth shell, morph
+        cube→sphere, onion cutaway, live evenness score.</p>
+    </a>
     <a class="card" href="dots.html">
-      <div class="tag">Goal 1.1 – 1.2</div>
+      <div class="tag">Study</div>
       <h2>Sphere of Dots</h2>
       <p>A finite sphere of points with an orbit camera and a live resolution
         slider — and the lat/long pole problem made visible.</p>
     </a>
     <a class="card" href="cubed-sphere.html">
-      <div class="tag">Goal 1.3</div>
+      <div class="tag">Study</div>
       <h2>Cube → Sphere</h2>
       <p>Inflate a gridded cube into a ball: no pole pinch, a clean per-face grid,
         cube blocks. Watch it breathe between cube and sphere.</p>
     </a>
     <a class="card" href="heatmap.html">
-      <div class="tag">Goal 1.4</div>
+      <div class="tag">Study</div>
       <h2>Distortion Heat Map</h2>
       <p>Measure each cell's spacing and paint blue→red across all four schemes,
         with a histogram and a single max/min evenness score.</p>
     </a>
     <a class="card" href="depth.html">
-      <div class="tag">Goal 1.5</div>
+      <div class="tag">Study</div>
       <h2>Onion Depth Cutaway</h2>
       <p>Depth distortion: naive shells crowd the core; the onion (cells ∝ r²)
         stays cube-ish all the way down, from lava core to surface.</p>
@@ -101,13 +120,16 @@
   </div>
 
   <div class="scores">
-    Best so far — <b>Surface:</b> Icosphere 1.12× (even <i>and</i> gridded) ·
-    <b>Depth:</b> Onion 1.15× (vs 3.98× naive). <i>Lower = more even, 1.0 = perfect.</i>
+    Decisions — <b>Surface:</b> cubed sphere (2.18×; the Minecraft feel beat the
+    icosphere's 1.12× evenness) · <b>Depth:</b> onion, cells ∝ r² (1.15× vs 3.98×
+    naive; shell merges are canon). <i>Lower = more even, 1.0 = perfect.</i>
   </div>
 
   <footer>
     Built from scratch, no dependencies — just WebGL + a hand-rolled mat4.
-    Node checks: <code>measure-all.mjs</code>, <code>depth-measure.mjs</code>,
+    Node checks: <code>game-check.mjs</code>, <code>chunk-check.mjs</code>,
+    <code>icosphere-check.mjs</code>, <code>planet-check.mjs</code>,
+    <code>measure-all.mjs</code>, <code>depth-measure.mjs</code>,
     <code>compute-ratio.mjs</code>. Roadmap in <code>GOAL.md</code>.
   </footer>
 </div>

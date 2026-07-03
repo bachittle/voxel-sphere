@@ -85,7 +85,17 @@ diagnosed and fixed in the modular build (A.4 ✅).
   *Verified:* `game-check.mjs` quantized-coincidence test — Build 1 has 34–88
   coincident quads per seed, modular build has **0**.
 
-## Phase B — The Loop ⬜ (where it becomes a game)
+- **A.5 ✅ index.html refresh (2026-07-03)** — the hub now leads with a Play
+  hero card for `game.html` (previously unlinked!), demotes Build 1 + the
+  icosphere probe to a "Frozen builds" section (icosphere card rewritten past
+  tense: cube won), groups the studies, and updates the scores line to state
+  the *decisions* rather than the horse race. Re-edit one card per milestone.
+
+## Phase B — The Loop 🔄 (where it becomes a game)
+
+**Order (decided 2026-07-03 grilling): B.4 → B.2 → B.3.** Pointer-lock aiming
+changes the feel of looking so much that the crosshair (B.2) should be tuned
+against it, not against drag-look. B.5 last, as written.
 
 - **B.1 ✅ Mutable chunks + re-meshing (2026-07-02)** — `src/chunks.js`: the
   planet cut into 16×16-column × full-depth chunks (384 total), each meshed
@@ -114,13 +124,20 @@ diagnosed and fixed in the modular build (A.4 ✅).
   unlimited. 9-slot hotbar (keys 1–9 / scroll): dirt, stone, sand, log,
   leaves, glass*, torch* (*new block types). **Water & lava hotbar slots are
   🚫 blocked on S.2 (cellular flow)** — placeable fluids need spreading to
-  make sense. *Verifier:* build a house; dig a shaft through a shell merge.
+  make sense. Torch places **inert** until C.1 lights it (decided 2026-07-03) —
+  block type + placement land here, the glow is C.1's whole job. *Verifier:*
+  build a house; dig a shaft through a shell merge.
 - **B.4 ⬜ Desktop controls + menus** — Pointer Lock API (click to capture,
   raw-delta look), ESC → pause/settings menu (mouse sensitivity, invert Y,
   FOV, input-mode override), backtick → debug panel (the old dev sliders:
   time of day, spin, cutaway, fps). Touch controls kept, auto-detected.
+  Decided 2026-07-03: ESC is a **real pause** (sim freezes, keeps rendering;
+  backtick panel does *not* pause), and settings persist to localStorage
+  (`vs-settings` — separate from B.5 world saves).
   *Verifier:* feels like a native FPS in the browser; mobile still works.
-- **B.5 ⬜ Persistence** — seed + edit deltas: localStorage per-seed
+- **B.5 ⬜ Persistence** — **principle (2026-07-03): localStorage first;
+  export/import files second; a backend only if neither suffices.**
+  Seed + edit deltas: localStorage per-seed
   (automatic), plus **export/import** for sharing — a save is a small JSON
   blob (seed + delta list), downloadable as a file; small ones can ride a URL
   fragment so a friend loads your build from a link. Keep it behind a narrow
