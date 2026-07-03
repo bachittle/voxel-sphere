@@ -11,8 +11,28 @@ caves — then subtract or mutate from there. Survival, automation, and the rest
 layer on later.
 
 **Status:** ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked (see dep)
-Reference any goal by its label (e.g. "do B.3"). Phases are ordered; Phase 0
-gates Phase A (the grid choice shapes the chunk format).
+Reference any goal by its label (e.g. "do B.3"). Labels are stable; phase
+letters are *history*, not priority — **the Now → Next queue below is the
+authoritative work order** (reprioritized 2026-07-03 after the first real
+playtest: the world fights the builder, so world-shaping beats sky polish).
+
+## Now → Next (reprioritized 2026-07-03)
+
+1. **E.5** controls menu — trivial; the self-documenting rule starts now
+2. **E.6** planet-fixed camera when auto-orbit is off — small bug-feel fix
+3. **E.1** flat spots — biggest playability lever. **Bundle the oracle
+   break:** one commit retires Build-1 byte-equivalence, adds C.2's visible
+   bedrock tile, and re-aims the checks at a new frozen reference (v2) —
+   one intentional worldgen break instead of two. (This is also the first
+   slice of S.5.)
+4. **E.2** world settings + save v2 — flatness slider ships into it
+5. **A.2** GitHub Pages — share it once building feels good (needs Bailey's
+   OK to create the public repo)
+6. **E.3** depth shell merges — the big one; grill/spec first, probe artifact
+   like 0.1 before committing to the chunk-format rewrite
+7. **Phase D**, by value-per-effort: **D.5** water → **D.2** sun disc
+   (half-built, uncommitted) → **D.1** vegetation → **0.2** clouds probe →
+   **D.3** clouds → **D.4** moon
 
 ---
 
@@ -204,7 +224,7 @@ against it, not against drag-look. B.5 last, as written.
   1.7 blocks/2s, swim-up surfaces, float settles ~1.4 deep, beach grounding
   intact. *Bailey's verifier still open:* swim across an ocean by hand.
 
-## Phase D — World & Sky ⬜
+## Phase D — World & Sky ⬜ (queued after Phase E; order: D.5 → D.2 → D.1 → D.3 → D.4)
 
 - **D.1 ⬜ Vegetation pass** — MC-style cross-quad sprites (tall grass,
   flowers, cave mushrooms), biome-tinted, scattered as a worldgen decoration
@@ -273,7 +293,9 @@ surface distortion accepted for now.
   spherical shell-merging grid. **Unlocks:** water & lava in the hotbar (B.3).
 - **S.3 ⬜ Survival layer** — blocks drop as items, inventory, counts.
 - **S.4 ⬜ Full creative inventory** — every block, searchable picker.
-- **S.5 ⬜ Test harness** — unit tests for grid math/worldgen, integration
+- **S.5 🔄 Test harness** — first slice rides with E.1: the Build-1
+  byte-equivalence oracle gets re-aimed at a frozen reference snapshot (v2)
+  instead of retired. Remaining: unit tests for grid math/worldgen, integration
   tests for chunk edits, browser-automation smoke tests.
 - **S.6 ⬜ Visitable moon / solar system** (old 5.1) — impostor→chunk LOD
   promotion, space flight between spheres. The Outer Wilds end-state.
