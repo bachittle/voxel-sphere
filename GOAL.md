@@ -21,11 +21,20 @@ playtest: the world fights the builder, so world-shaping beats sky polish).
 *(updated 2026-07-03 evening — E.5/E.6/E.1/E.2/A.2/D.2 all landed; game is
 live at chittle.cc/voxel-sphere)*
 
-1. **E.7** size-profile tuning + **E.9** planet types — Bailey's active
-   experiment loop; start with all-ocean + all-desert presets
-2. **E.3** depth shell merges — grill/spec first, probe artifact like 0.1
-3. **E.8** lazy/progressive chunk meshing for 512/1024 (the fun challenge:
-   LOD far-mesh + streamed near-chunks, planet still whole from orbit)
+**Bailey's verdict (2026-07-03 night): colossal (1024) is awesome — if it
+can be optimized it's the starting planet; huge (512) is runner-up. The
+bigger the world, the more Minecraft it feels.** And the math agrees —
+scale quietly solves the deep-block problem too (see E.3).
+
+1. **E.8** optimize colossal → the default starting planet (the fun
+   challenge: LOD far-mesh + streamed near-chunks, whole planet still
+   visible from orbit; async/worker worldgen so the freeze dies)
+2. **E.7** size-profile tuning + **E.9** planet types — the experiment
+   loop; start with all-ocean + all-desert presets. E.7 also owes a fix:
+   small worlds are geometrically broken at depth (see entry)
+3. **E.3** depth shell merges — **de-prioritized by scale**: block w:h at
+   bedrock is 0.30:1 at N=128 but 0.83:1 at 512 and 0.91:1 at 1024 —
+   visually cubic. Only worth building if small/normal worlds stay primary
 4. **Phase D**, by value-per-effort: **D.5** water → **D.1** vegetation →
    **0.2** clouds probe → **D.3** clouds → **D.4** moon
 
@@ -274,7 +283,9 @@ surface distortion accepted for now.
   to 128 (original 41-edit build intact), back to 64 (edit intact), settings
   persisted. *Verifier for Bailey:* try a large (256) world — regen takes a
   few seconds.
-- **E.3 ⬜ Depth shell merges — make deep blocks cube-ish** — the game never
+- **E.3 ⬜ Depth shell merges — make deep blocks cube-ish (de-prioritized
+  2026-07-03: scale solves it — 0.91:1 at N=1024 vs 0.30:1 at 128; only
+  needed if small/normal stay primary)** — the game never
   implemented the onion's merges: columns run continuously to the core, so
   block *width* shrinks with radius while *height* (dr) stays constant —
   skinny rectangles down deep (at the core ~1:3). Implement discrete column
@@ -300,17 +311,24 @@ surface distortion accepted for now.
   trees (23% flat at 256). *Open:* tuning is eyeball-work — Bailey plays,
   we turn knobs; "more diverse ecosystems" (new biomes, rarer features)
   still wants real design, possibly with E.9's planet types. Oracle-safe at
-  every size but 128.
+  every size but 128. **Bug found (2026-07-03): small worlds are broken at
+  depth** — SEA=57 shells is constant while dr=π/(2N) grows as N shrinks, so
+  at N=64 the crust is "140% of the radius": below shell 17 the radius goes
+  NEGATIVE (inside-out cells around the core). Fix: scale depth with N
+  (e.g. SEA=min(57, ~0.6/dr)) — changes save-compat for small worlds only.
 - **E.8 🔄 Very large worlds: 512 / 1024 selectable (2026-07-03)** — size
   menu gained **huge (512)** — warns, then generates (measured: 2.0s
   worldgen+mesh in browser) — and **colossal (1024)** behind an
   arm-to-confirm (select twice; verified it warns + reverts). The matCache
   bomb (528MB at 1024) is defused: N≥512 skips the cache and recomputes
   (mat() is cheap). Measured 1024 worldgen: 2.9s / 293MB heap in Node —
-  in-browser full meshing (24,576 chunks) still untested. **Remaining — the
-  fun engineering challenge:** lazy/progressive chunk meshing for planets
-  you can still *see whole* from orbit — likely a low-LOD far mesh (whole
-  planet, heightmap-only) + real chunks streamed in near the player.
+  in-browser full meshing (24,576 chunks) still untested. **Remaining — now queue #1
+  (Bailey: colossal = target starting planet):** lazy/progressive chunk
+  meshing for planets you can still *see whole* from orbit — likely a
+  low-LOD far mesh (whole planet, heightmap-only) + real chunks streamed in
+  near the player; worker/async worldgen to kill the generate freeze; watch
+  GPU memory (mesh bytes scale ~N²) and per-frame draw calls (24,576 chunks
+  can't each be a drawMesh call — batch or cull).
 - **E.9 ⬜ Planet types / archetypes (Bailey, 2026-07-03 — idea catalog,
   deliberately wide)** — themed worldgen presets alongside size: a preset =
   profile overrides (sea level, amplitude, biome table, palette, features).
