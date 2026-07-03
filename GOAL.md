@@ -218,6 +218,45 @@ against it, not against drag-look. B.5 last, as written.
 - **D.5 ⬜ Water shader glow-up** — animated UV scroll, depth tint,
   transparency/fresnel polish.
 
+## Phase E — World Shaping ⬜ (Bailey's 2026-07-03 playtest feedback)
+
+Three distinct problems from the first real build session, in decided priority
+order: flat spots first (cheap, immediate), depth merges second (big, real),
+surface distortion accepted for now.
+
+- **E.1 ⬜ Flat spots for building** — terrain is all slopes; terrace the
+  height field so plains/lowlands quantize into flat plateaus while mountains
+  stay ridged. Pure `worldgen.js` tuning. **⚠ First intentional worldgen
+  change — breaks the Build-1 byte-equivalence oracle** in game-check/
+  chunk-check (same decision as C.2's visible bedrock): when this lands,
+  version the oracle (compare against a new frozen reference, not Build 1)
+  and consider adding bedrock's visible tile in the same break. *Verifier:*
+  walk out of spawn and find a house-sized flat spot within a minute.
+- **E.2 ⬜ World settings in the pause menu** — a World-shaping section:
+  **seed** (field + 🎲, mirrored from the backtick debug panel) and **world
+  size** (N = 64 / 128 / 256 selector), both regenerating. Terrain-flatness
+  slider joins when E.1 lands. **Save format v2:** edit keys encode column
+  indices, which depend on N — a save must record `(seed, N)` and only load
+  into a matching world. *Verifier:* switch sizes, build, switch back, the
+  save survives.
+- **E.3 ⬜ Depth shell merges — make deep blocks cube-ish** — the game never
+  implemented the onion's merges: columns run continuously to the core, so
+  block *width* shrinks with radius while *height* (dr) stays constant —
+  skinny rectangles down deep (at the core ~1:3). Implement discrete column
+  merging (2×2→1 or 2→1 at chosen radii) so cells stay near-cubic, as
+  measured in `depth.html` (1.15× onion). Touches chunk format, mesher,
+  collision, raycast — **spec/grill before building.** The merge seams stay
+  canon ("blocks get weird as you go down" = visible strata boundaries).
+- **E.4 ⬜ Surface distortion — accepted for now** — the cubed sphere's 2.18×
+  face-center-vs-corner stretch stays. Revisit only via larger world sizes
+  (E.2 experiments): bigger N doesn't remove the ratio but spreads it over
+  more blocks so local neighborhoods look uniform. No work planned.
+- **E.5 ⬜ Controls reference in the pause menu** — a Controls section/tab
+  listing every binding (WASD, space, shift/C, F fly, 1–9/scroll hotbar,
+  click/right-click, ESC, backtick, touch equivalents). **Standing rule: any
+  future control lands with its line added here.** *Verifier:* a new player
+  can learn the game from the menu alone.
+
 ## Shelf — explicitly later ⬜
 
 - **S.1 ⬜ Block-light propagation** — Minecraft-true flood-fill light levels
