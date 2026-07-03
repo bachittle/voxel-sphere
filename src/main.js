@@ -10,6 +10,8 @@ import{player,stepPlayer}from'./player.js';
 import{canvas,gl,mainP,U,starP,sU,sFade,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
        starMesh,ATM_R,upload,freeMesh,drawMesh,resize}from'./gl.js';
 import{perspective,mul,rotX,rotY,translate,rotYv,rotXv,vdot,sstep,lookAtM}from'./math.js';
+import{SET}from'./settings.js';
+import'./menu.js';
 import'./input.js';
 
 // ===== planet build / GL mesh state =====
@@ -100,14 +102,14 @@ function frame(t){
     if((fpsTick+=dt)>500){fpsTick=0;fpsEl.textContent=fpsEMA.toFixed(0);}}
   // planet rotation: theta spins the world; sun stays fixed in world space,
   // so in the planet frame the sun direction is rotY(-theta)*SUNW
-  S.theta=(S.theta+S.omega*dt/1000)%(2*Math.PI);
+  if(!S.paused)S.theta=(S.theta+S.omega*dt/1000)%(2*Math.PI);
   const sunM=rotYv(SUNW,-S.theta);
   if(!todDrag){todEl.value=Math.round(S.theta/(2*Math.PI)*240);
     const hh=S.theta/(2*Math.PI)*24;
     todVal.textContent=String(hh|0).padStart(2,'0')+':'+
       String((hh%1*60)|0).padStart(2,'0');}
-  if(S.mode==='fp')stepPlayer(dt/1000);
-  else if(spinEl.checked&&!S.drag)S.yaw+=0.0011*dt*0.06;
+  if(S.mode==='fp'){if(!S.paused)stepPlayer(dt/1000);}
+  else if(spinEl.checked&&!S.drag&&!S.paused)S.yaw+=0.0011*dt*0.06;
   rebuildDirty();
   if(cutDirty){cutDirty=false;rebuildCut();}
   const a=cutEl.value/100,clip=2-2*a;
@@ -126,7 +128,7 @@ function frame(t){
     const eye=[up[0]*eyeR,up[1]*eyeR,up[2]*eyeR];
     const cp=Math.cos(p.pitch),sp=Math.sin(p.pitch),h=p.head;
     const fwd=[h[0]*cp+up[0]*sp,h[1]*cp+up[1]*sp,h[2]*cp+up[2]*sp];
-    const proj=perspective(1.15,aspect,0.0025,80); // near ~0.2 blocks: standing in a 1×1 shaft must not clip through its walls
+    const proj=perspective(SET.fov*Math.PI/180,aspect,0.0025,80); // near ~0.2 blocks: standing in a 1×1 shaft must not clip through its walls
     const view=lookAtM(eye,fwd,up);
     mvpT=mul(proj,view);
     mvpS=mul(mul(proj,view),rotY(-S.theta)); // stars sweep the FP sky as we turn

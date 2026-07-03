@@ -3,6 +3,7 @@ import{vnorm}from'./math.js';
 
 export const S={
   mode:'orbit',                      // 'orbit' | 'fp'
+  paused:false,                      // ESC menu: real pause (render, no sim)
   yaw:0.7,pitch:-0.28,dist:3.4,panX:0,panY:0,drag:false,
   theta:20/240*2*Math.PI,omega:0,    // planet rotation angle + rad/s
 };

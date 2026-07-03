@@ -127,14 +127,20 @@ against it, not against drag-look. B.5 last, as written.
   make sense. Torch places **inert** until C.1 lights it (decided 2026-07-03) —
   block type + placement land here, the glow is C.1's whole job. *Verifier:*
   build a house; dig a shaft through a shell merge.
-- **B.4 ⬜ Desktop controls + menus** — Pointer Lock API (click to capture,
+- **B.4 ✅ Desktop controls + menus (2026-07-03)** — Pointer Lock API (click to capture,
   raw-delta look), ESC → pause/settings menu (mouse sensitivity, invert Y,
   FOV, input-mode override), backtick → debug panel (the old dev sliders:
   time of day, spin, cutaway, fps). Touch controls kept, auto-detected.
   Decided 2026-07-03: ESC is a **real pause** (sim freezes, keeps rendering;
   backtick panel does *not* pause), and settings persist to localStorage
   (`vs-settings` — separate from B.5 world saves).
-  *Verifier:* feels like a native FPS in the browser; mobile still works.
+  Shipped: `settings.js` + `menu.js`; sensitivity/invert-Y/FOV live-applied;
+  desktop hides touch FABs + debug panel (backtick reveals); ESC-guard so the
+  lock-releasing ESC doesn't also close the fresh menu. Browser-automation
+  verified (pause freezes theta, settings persist, locked dig/look via stubbed
+  pointerLockElement — headless refuses real lock, so **the FPS feel needs
+  Bailey's hands**). *Verifier:* feels like a native FPS in the browser;
+  mobile still works.
 - **B.5 ⬜ Persistence** — **principle (2026-07-03): localStorage first;
   export/import files second; a backend only if neither suffices.**
   Seed + edit deltas: localStorage per-seed

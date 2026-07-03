@@ -7,6 +7,7 @@
 // check — full voxel AABB collision is B.3/B.4 territory.
 import{vdot,vcross,vnorm,clampf}from'./math.js';
 import{world,isSolid}from'./world.js';
+import{SET}from'./settings.js';
 
 export const player={dir:[0,0,1],r:1.3,head:[0,1,0],pitch:0,vr:0,grounded:false,fly:false};
 // movement input state, written by input.js, read by stepPlayer
@@ -85,7 +86,7 @@ export function stepPlayer(dt){
   }
 }
 export function fpLook(dx,dy){
-  const a=-dx*0.0042,up=player.dir,h=player.head;
+  const k=0.0042*SET.sens,a=-dx*k,up=player.dir,h=player.head;
   const uxh=vcross(up,h),c=Math.cos(a),s=Math.sin(a);
   player.head=vnorm([h[0]*c+uxh[0]*s,h[1]*c+uxh[1]*s,h[2]*c+uxh[2]*s]);
-  player.pitch=clampf(player.pitch-dy*0.0042,-1.45,1.45);}
+  player.pitch=clampf(player.pitch-(SET.invertY?-dy:dy)*k,-1.45,1.45);}

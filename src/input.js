@@ -7,19 +7,37 @@ import{world}from'./world.js';
 import{player,move,fpLook,groundR}from'./player.js';
 import{dig,place}from'./interact.js';
 import{vnorm,clampf,rotYv}from'./math.js';
+import{inputMode}from'./settings.js';
+import{openMenu,closeMenu,menuOpen,toggleDebug}from'./menu.js';
+
+// ===== pointer lock (B.4 desktop mode) =====
+// FP desktop: click captures the mouse; ESC (browser-forced unlock) opens the
+// pause menu via pointerlockchange. unlockT guards against the same ESC press
+// also reaching keydown and instantly closing the menu it just opened.
+const locked=()=>document.pointerLockElement===canvas;
+let unlockT=0;
+export function lockPointer(){
+  const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{});}
+document.addEventListener('pointerlockchange',()=>{
+  if(!locked()&&S.mode==='fp'&&!menuOpen()){unlockT=performance.now();openMenu();}});
 
 // ===== camera (orbital controls identical to demo.html; drag = look in FP) ====
-// In FP a click that barely moved = dig (throwaway pre-B.2 interaction);
-// a drag = look. Right-click = place.
+// Unlocked FP: a click that barely moved = dig on touch, capture on desktop;
+// a drag = look. Right-click = place. Locked FP: raw deltas, click digs.
 let lx=0,ly=0,downT=0,moved=1e9;
-canvas.addEventListener('mousedown',e=>{S.drag=true;lx=e.clientX;ly=e.clientY;
-  downT=performance.now();moved=0;});
+canvas.addEventListener('mousedown',e=>{
+  if(locked()){if(e.button===0)dig();else if(e.button===2)place();return;}
+  S.drag=true;lx=e.clientX;ly=e.clientY;downT=performance.now();moved=0;});
 window.addEventListener('mouseup',e=>{S.drag=false;
-  if(S.mode==='fp'&&e.button===0&&moved<5&&performance.now()-downT<300)dig();
+  if(locked())return;
+  if(S.mode==='fp'&&e.button===0&&moved<5&&performance.now()-downT<300){
+    if(inputMode()==='desktop')lockPointer();else dig();}
   moved=1e9;});
 canvas.addEventListener('contextmenu',e=>{e.preventDefault();
-  if(S.mode==='fp'&&moved<5)place();});
-window.addEventListener('mousemove',e=>{if(!S.drag)return;
+  if(!locked()&&S.mode==='fp'&&moved<5)place();});
+window.addEventListener('mousemove',e=>{
+  if(locked()){fpLook(e.movementX,e.movementY);return;}
+  if(!S.drag)return;
   const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
   moved+=Math.abs(dx)+Math.abs(dy);
   if(S.mode==='fp'){fpLook(dx,dy);return;}
@@ -47,8 +65,13 @@ canvas.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches;
 canvas.addEventListener('touchend',e=>{S.drag=false;pinch=0;
   if(e.touches.length===1){S.drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}});
 
-// keyboard (FP movement + fly toggle)
-window.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
+// keyboard (ESC menu, backtick debug panel, FP movement + fly toggle)
+window.addEventListener('keydown',e=>{
+  if(e.code==='Escape'){                 // ESC while locked arrives via
+    if(performance.now()-unlockT<250)return; // pointerlockchange instead
+    menuOpen()?closeMenu():openMenu();return;}
+  if(e.code==='Backquote'){toggleDebug();return;}
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
   move.KEY[e.code]=true;
   if(S.mode==='fp'){
     if(e.code==='KeyF')toggleFly();
@@ -101,8 +124,12 @@ function enterFP(){
   player.head=vnorm(h);
   S.mode='fp';document.body.classList.add('fp');
   modeBtn.textContent='🛰 orbit view';
-  hintEl.textContent='WASD walk · drag look · space jump · F fly · click dig · right-click place';}
+  if(inputMode()==='desktop'){lockPointer();
+    hintEl.textContent='WASD walk · mouse look · space jump · F fly · click dig · right-click place · ESC menu';}
+  else hintEl.textContent='WASD walk · drag look · space jump · F fly · click dig · right-click place';}
 function exitFP(){
+  S.mode='orbit';                        // before unlock: no pause menu on exit
+  if(document.pointerLockElement)document.exitPointerLock();
   const d=rotYv(player.dir,S.theta);     // back to world frame for the orbit cam
   S.pitch=clampf(Math.asin(clampf(d[1],-1,1)),-1.5,1.5);
   S.yaw=Math.atan2(-d[0],d[2]);S.panX=S.panY=0;S.dist=Math.max(S.dist,2.2);
