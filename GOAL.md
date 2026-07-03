@@ -207,14 +207,13 @@ against it, not against drag-look. B.5 last, as written.
   — a lava pit lighting its cavern *walls* rides with that. *Verified:*
   browser screenshots day + night — night torch pool of light on grass,
   day unaffected.
-- **C.2 ✅ Bedrock cap, behavior-only (2026-07-03)** — dig() refuses shells
-  0–2, sealing off the core; the shell-merge weirdness above it is canon, not
-  a bug. Programmatic `VS.edit` stays unrestricted for tests. **Open
-  decision for Bailey:** a *visible* bedrock tile means changing worldgen
-  materials, which breaks the Build-1 byte-equivalence oracle in
-  game-check/chunk-check — do we retire that oracle or keep bedrock
-  invisible? *Verifier:* dig straight down; the last three shells won't
-  break.
+- **C.2 ✅ Bedrock cap (2026-07-03; visible tile landed with E.1)** — dig()
+  refuses shells 0–2, sealing off the core; the shell-merge weirdness above
+  it is canon, not a bug. Programmatic `VS.edit` stays unrestricted for
+  tests. The open oracle decision resolved with E.1: bedrock is a *visible*
+  tile (T.BEDROCK=21, hand-drawn) at shell 2, and the oracle was re-aimed at
+  reference-v2 in the same break. *Verifier:* dig straight down; you see and
+  hit bedrock.
 - **C.3 ✅ Swimming (2026-07-03)** — player cell is water → buoyancy, drag,
   swim controls, against static water. Ocean columns' `groundR` is now the
   ocean *floor* (walking-on-water removed); space = stroke up, shift = dive,
@@ -249,14 +248,21 @@ Three distinct problems from the first real build session, in decided priority
 order: flat spots first (cheap, immediate), depth merges second (big, real),
 surface distortion accepted for now.
 
-- **E.1 ⬜ Flat spots for building** — terrain is all slopes; terrace the
-  height field so plains/lowlands quantize into flat plateaus while mountains
-  stay ridged. Pure `worldgen.js` tuning. **⚠ First intentional worldgen
-  change — breaks the Build-1 byte-equivalence oracle** in game-check/
-  chunk-check (same decision as C.2's visible bedrock): when this lands,
-  version the oracle (compare against a new frozen reference, not Build 1)
-  and consider adding bedrock's visible tile in the same break. *Verifier:*
-  walk out of spawn and find a house-sized flat spot within a minute.
+- **E.1 ✅ Flat spots for building (2026-07-03)** — the continent term is now
+  **terraced** (quantized to 4-shell bands, 18%-wide ramps) before the ridged
+  mountain term is added un-terraced — lowlands become broad flat plateaus,
+  peaks stay jagged. **The oracle break, bundled as planned:** Build-1
+  byte-equivalence retired; `game-check.mjs` v2 compares against a frozen
+  snapshot (`make-reference.mjs` → `reference-v2.json`, FNV hashes of
+  terrain/biomes/materials/trees/all meshes, seeds 1337·42·7) and keeps the
+  full integrity battery; `chunk-check.mjs`'s oracle was already
+  self-consistent (chunked vs buildStatic over the same worldgen) and
+  survives untouched; Build 1 stays guarded by `planet-check.mjs`. C.2's
+  **visible bedrock tile** rode along at shell 2. Measured: **18.5% of
+  sampled land is flat 5×5** (was ~0), now a permanent game-check assertion
+  (>10%). *Verified:* orbit screenshot — stepped plateaus, flat coasts,
+  jagged snowcaps. Node checks green on 3 seeds. Note: pre-E.1 saves keep
+  their absolute cells but the terrain shifted under them.
 - **E.2 ⬜ World settings in the pause menu** — a World-shaping section:
   **seed** (field + 🎲, mirrored from the backtick debug panel) and **world
   size** (N = 64 / 128 / 256 selector), both regenerating. Terrain-flatness
@@ -298,7 +304,7 @@ surface distortion accepted for now.
   spherical shell-merging grid. **Unlocks:** water & lava in the hotbar (B.3).
 - **S.3 ⬜ Survival layer** — blocks drop as items, inventory, counts.
 - **S.4 ⬜ Full creative inventory** — every block, searchable picker.
-- **S.5 🔄 Test harness** — first slice rides with E.1: the Build-1
+- **S.5 🔄 Test harness** — first slice landed with E.1 (2026-07-03): the Build-1
   byte-equivalence oracle gets re-aimed at a frozen reference snapshot (v2)
   instead of retired. Remaining: unit tests for grid math/worldgen, integration
   tests for chunk edits, browser-automation smoke tests.
