@@ -13,10 +13,10 @@ function prog(vs,fs){const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_S
 export const mainP=prog(`
   attribute vec3 aPos;attribute vec2 aUV;attribute vec2 aSC;attribute vec3 aNrm;
   uniform mat4 uMVP;uniform float uClip,uMode;uniform vec3 uSun;
-  varying vec2 vUV;varying float vX;varying vec3 vL;
+  varying vec2 vUV;varying float vX;varying vec3 vL;varying vec3 vPos;
   void main(){
-    if(uMode<0.5&&aSC.y>uClip){gl_Position=vec4(2.,2.,2.,1.);vUV=aUV;vL=vec3(0.);vX=0.;return;}
-    vUV=aUV;vX=aPos.x;
+    if(uMode<0.5&&aSC.y>uClip){gl_Position=vec4(2.,2.,2.,1.);vUV=aUV;vL=vec3(0.);vX=0.;vPos=vec3(0.);return;}
+    vUV=aUV;vX=aPos.x;vPos=aPos;
     // day/night: radial dir vs sun sets the terminator; face normal sets diffuse
     vec3 rd=normalize(aPos);
     float dd=dot(rd,uSun);
@@ -25,7 +25,7 @@ export const mainP=prog(`
     float dif=max(dot(aNrm,uSun),0.0);
     vec3 amb=mix(vec3(0.055,0.075,0.14),vec3(0.34,0.36,0.40),dayA);
     vL=(amb+sunCol*(dif*0.95*dayA))*min(aSC.x,1.0);
-    if(aSC.x>1.2)vL=vec3(1.15);   // emissive lava
+    if(aSC.x>1.2)vL=vec3(1.15);   // emissive lava (and torch sprites)
     gl_Position=uMVP*vec4(aPos,1.);}`,`
   #ifdef GL_FRAGMENT_PRECISION_HIGH
   precision highp float;
@@ -33,15 +33,23 @@ export const mainP=prog(`
   precision mediump float;
   #endif
   uniform sampler2D uT;uniform float uClip,uMode,uAlpha,uTileMode;uniform vec4 uTileRect;
-  varying vec2 vUV;varying float vX;varying vec3 vL;
+  uniform vec3 uPt[8];uniform float uPtN,uPtR; // C.1 torch point lights
+  varying vec2 vUV;varying float vX;varying vec3 vL;varying vec3 vPos;
   void main(){
     if(uMode>0.5&&vX>uClip)discard;
     vec2 uv=uTileMode>0.5?uTileRect.xy+fract(vUV)*uTileRect.zw:vUV;
     vec4 c=texture2D(uT,uv);
     if(c.a<0.5)discard;
-    gl_FragColor=vec4(c.rgb*vL,uAlpha);}`);
+    vec3 pt=vec3(0.);
+    for(int i=0;i<8;i++){
+      if(float(i)>=uPtN)break;
+      float f=max(0.,1.-distance(vPos,uPt[i])/uPtR);
+      pt+=vec3(1.00,0.72,0.40)*(f*f*1.1);}
+    // MC-style: block light doesn't add to daylight, the brighter one wins
+    gl_FragColor=vec4(c.rgb*max(vL,pt),uAlpha);}`);
 export const U={};
-for(const n of['uMVP','uClip','uMode','uAlpha','uTileMode','uTileRect','uT','uSun'])
+for(const n of['uMVP','uClip','uMode','uAlpha','uTileMode','uTileRect','uT','uSun',
+               'uPt','uPtN','uPtR'])
   U[n]=gl.getUniformLocation(mainP,n);
 const aPos=gl.getAttribLocation(mainP,'aPos'),aUV=gl.getAttribLocation(mainP,'aUV'),
       aSC=gl.getAttribLocation(mainP,'aSC'),aNrm=gl.getAttribLocation(mainP,'aNrm');

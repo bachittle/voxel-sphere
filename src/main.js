@@ -163,6 +163,19 @@ function frame(t){
   gl.useProgram(mainP);
   gl.uniformMatrix4fv(U.uMVP,false,mvpT);
   gl.uniform3f(U.uSun,sunM[0],sunM[1],sunM[2]);
+  // C.1: the 8 nearest placed torches as warm point lights (planet frame)
+  {const P=world.P,tl=[];
+   if(world.torches.size){
+     const arr=[];
+     for(const k of world.torches){const col=(k/P.SH)|0,s=k-col*P.SH;
+       const r=P.rc(s),x=P.dir[col*3]*r,y=P.dir[col*3+1]*r,z=P.dir[col*3+2]*r;
+       const ex=x-camP[0],ey=y-camP[1],ez=z-camP[2];
+       arr.push([ex*ex+ey*ey+ez*ez,x,y,z]);}
+     arr.sort((a,b)=>a[0]-b[0]);
+     for(let i=0;i<Math.min(8,arr.length);i++)tl.push(arr[i][1],arr[i][2],arr[i][3]);}
+   gl.uniform1f(U.uPtN,tl.length/3);
+   gl.uniform1f(U.uPtR,6.5*P.dr);
+   if(tl.length){while(tl.length<24)tl.push(0);gl.uniform3fv(U.uPt,tl);}}
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,atlasTex);
   gl.uniform1i(U.uT,0);
   const lr=MESH.tileRect(T.LAVA);

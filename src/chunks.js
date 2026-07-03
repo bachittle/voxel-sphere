@@ -163,8 +163,8 @@ export function buildChunk(P,id){
                 e2=[C[0]-A[0],C[1]-A[1],C[2]-A[2]],
                 n=[e1[1]*e2[2]-e1[2]*e2[1],e1[2]*e2[0]-e1[0]*e2[2],
                    e1[0]*e2[1]-e1[1]*e2[0]];
-          emitQuad(op,A,Bp,C,D,n[0],n[1],n[2],T.TORCH,1.0,cxv);
-          emitQuad(op,A,Bp,C,D,-n[0],-n[1],-n[2],T.TORCH,1.0,cxv);};
+          emitQuad(op,A,Bp,C,D,n[0],n[1],n[2],T.TORCH,1.5,cxv);   // 1.5 = emissive
+          emitQuad(op,A,Bp,C,D,-n[0],-n[1],-n[2],T.TORCH,1.5,cxv);};
         q(i,j,i+1,j+1);q(i+1,j,i,j+1);
       }
     }

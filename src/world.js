@@ -12,12 +12,14 @@ import*as WG from'./worldgen.js';
 
 export const N=128;
 export const world={seed:0,P:null,edits:new Map(),editsByCol:new Map(),openMask:new Map(),
-  rev:0};                              // bumped per edit; autosave watches it (B.5)
+  rev:0,                               // bumped per edit; autosave watches it (B.5)
+  torches:new Set()};                  // packed torch cells; C.1 point lights
 
 export function generate(seed){
   world.seed=seed;
   world.P=WG.init(seed,N);
   world.edits.clear();world.editsByCol.clear();world.openMask.clear();
+  world.torches.clear();
   return world.P;
 }
 
@@ -35,6 +37,8 @@ export function setBlock(col,s,tile){
   let ec=world.editsByCol.get(col);
   if(!ec){ec=new Map();world.editsByCol.set(col,ec);}
   ec.set(s,tile);
+  if(tile===WG.T.TORCH)world.torches.add(key(col,s));
+  else world.torches.delete(key(col,s));
   world.rev++;
 }
 export function clearEdits(){

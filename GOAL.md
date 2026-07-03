@@ -177,10 +177,16 @@ against it, not against drag-look. B.5 last, as written.
 
 ## Phase C — Depth & Feel ⬜
 
-- **C.1 ⬜ Torches + emissive lava** — torch = placeable point light (uniform
-  array, ~8 nearest, per-pixel); lava renders emissive (ignores sun). Full
-  light propagation is deferred to S.1. *Verifier:* descend a cave placing
-  torches; a lava pit lights its cavern.
+- **C.1 ✅ Torches + emissive lava (2026-07-03)** — torch = placeable point
+  light (uniform array, 8 nearest to camera, per-pixel warm falloff over
+  6.5 blocks); lava renders emissive (ignores sun — already true since
+  Build 1). Torch sprites are emissive too (shade 1.5). Lesson: additive
+  torch light blew out daylight; shipped MC-style `max(skyLight, blockLight)`
+  blending instead. `world.torches` Set feeds the uniforms; persists via B.5
+  since torches are just edits. Full light propagation still deferred to S.1
+  — a lava pit lighting its cavern *walls* rides with that. *Verified:*
+  browser screenshots day + night — night torch pool of light on grass,
+  day unaffected.
 - **C.2 ⬜ Bedrock cap** — unbreakable layer sealing off the innermost core;
   the shell-merge weirdness above it is canon, not a bug. *Verifier:* dig
   straight down; you hit bedrock, not the singularity.
