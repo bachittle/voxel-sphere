@@ -298,6 +298,24 @@ surface distortion accepted for now.
   Y-rotations, so constant sum ⇔ frozen terrain); sun/stars sweep instead.
   *Verifier (Bailey, 10s):* uncheck auto-orbit with spin up → terrain
   freezes while the terminator still moves.
+- **E.7 ⬜ Size-aware worldgen profiles (Bailey, 2026-07-03)** — observed:
+  current gen is weakest at small (64), ok at normal, best at large (256).
+  Make worldgen a function of planet size: **small = flat, simple, toy-like**
+  (mostly plains, minimal mountains — a building sandbox); **normal =
+  current**; **large = more diverse terrain types and ecosystems** (more
+  biomes, bigger climate zones, rarer features worth traveling to). Probably
+  a `profile(N)` that scales noise frequencies, terrace band size, mountain
+  mask threshold, and biome thresholds. Reference snapshots only exist for
+  N=128, so this is oracle-safe at other sizes; changing 128 means
+  re-baking.
+- **E.8 ⬜ Very large worlds: N=512 / 1024** — feasibility numbers (N=128
+  baseline: 98k cols, 87ms build): cols scale 6N² → 512 = 1.57M cols
+  (~1.4s build), 1024 = 6.3M (~6s). The blocker is `matCache`
+  (Int8Array(cols×84)): 132MB at 512, **528MB at 1024** — needs to go
+  sparse/per-chunk or die (recompute is cheap); mesh memory + initial
+  full-planet meshing also want lazy per-chunk builds at 1024. 512 likely
+  works today behind the loading overlay; try it first. Chunk count at CS=16:
+  6144 (512) / 24576 (1024) — rebuildDirty's 8/frame budget still fine.
 - **E.5 ✅ Controls reference in the pause menu (2026-07-03)** — collapsible
   Controls section (native <details>) in the ESC menu listing every binding,
   desktop + touch, 15 rows. **Standing rule: any future control lands with
