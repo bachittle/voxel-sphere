@@ -82,6 +82,7 @@ export function updateTarget(active){
 export function dig(){
   const r=target.cur;
   if(!r)return false;
+  if(r.hit.s<=2)return false; // C.2 bedrock: shells 0-2 seal off the core
   editBlock(r.hit.col,r.hit.s,-1);
   updateTarget(true);
   return true;

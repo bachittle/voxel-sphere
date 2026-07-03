@@ -187,9 +187,14 @@ against it, not against drag-look. B.5 last, as written.
   — a lava pit lighting its cavern *walls* rides with that. *Verified:*
   browser screenshots day + night — night torch pool of light on grass,
   day unaffected.
-- **C.2 ⬜ Bedrock cap** — unbreakable layer sealing off the innermost core;
-  the shell-merge weirdness above it is canon, not a bug. *Verifier:* dig
-  straight down; you hit bedrock, not the singularity.
+- **C.2 ✅ Bedrock cap, behavior-only (2026-07-03)** — dig() refuses shells
+  0–2, sealing off the core; the shell-merge weirdness above it is canon, not
+  a bug. Programmatic `VS.edit` stays unrestricted for tests. **Open
+  decision for Bailey:** a *visible* bedrock tile means changing worldgen
+  materials, which breaks the Build-1 byte-equivalence oracle in
+  game-check/chunk-check — do we retire that oracle or keep bedrock
+  invisible? *Verifier:* dig straight down; the last three shells won't
+  break.
 - **C.3 ⬜ Swimming** — player cell is water → buoyancy, drag, swim controls,
   against static water. *Verifier:* swim across an ocean; dive and surface.
 
