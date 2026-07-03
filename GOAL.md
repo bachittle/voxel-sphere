@@ -84,14 +84,12 @@ diagnosed and fixed in the modular build (A.4 ✅).
   terrain/biomes/materials/water/cutaway/core meshes **byte-identical** to
   Build 1's GEN block (3 seeds); orbital screenshots indistinguishable; FP
   walk/collision works.
-- **A.2 🔄 Static hosting — READY TO SHIP (2026-07-03), awaiting Bailey's go**
-  — verified: `gh` is authed as bachittle with `repo` scope, so we can create
-  a public `bachittle/voxel-sphere` repo and enable Pages from the CLI; repo
-  is 1.5MB, fully static, all-relative paths (sub-path-safe). Plan A:
-  `gh repo create bachittle/voxel-sphere --public --source . --push` then
-  enable Pages on main → `https://bachittle.github.io/voxel-sphere/`.
-  Plan B (Bailey's fallback): copy into `bachittle.github.io` (exists — his
-  portfolio) as a subfolder. Original spec: the
+- **A.2 ✅ Static hosting — LIVE (2026-07-03):**
+  **https://chittle.cc/voxel-sphere/** — public repo
+  `github.com/bachittle/voxel-sphere`, Pages on main/root; the custom domain
+  comes free from Bailey's user site, cert covers it. Verified from the
+  Pages URL: hub/game/modules all 200 over https, planet generates and runs
+  (N=128, 98k columns). Deploy = `git push`. Original spec: the
   whole game is static ES modules, so serve it from **GitHub Pages** to share
   with friends; local dev via any static server (`python -m http.server`).
   Save-sync moves to export/import (see B.5). A backend (the shelved Go

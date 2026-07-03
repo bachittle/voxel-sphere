@@ -4,8 +4,8 @@ A from-scratch WebGL voxel game where the world is a **finite sphere** —
 "down" is toward a molten core, "up" is out to the sky. Minecraft-style
 creative sandbox on a cubed-sphere grid with onion-shell depth.
 
-**▶ Play:** https://bachittle.github.io/voxel-sphere/ (hub) ·
-[game.html](https://bachittle.github.io/voxel-sphere/game.html) (the game)
+**▶ Play:** https://chittle.cc/voxel-sphere/ (hub) ·
+[game.html](https://chittle.cc/voxel-sphere/game.html) (the game)
 
 No dependencies, no bundler, no framework — plain WebGL + ES modules + a
 hand-rolled mat4. The one-file demos in the repo root are frozen artifacts
