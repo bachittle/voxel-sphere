@@ -26,6 +26,13 @@ can be optimized it's the starting planet; huge (512) is runner-up. The
 bigger the world, the more Minecraft it feels.** And the math agrees —
 scale quietly solves the deep-block problem too (see E.3).
 
+**Size identities (Bailey):** 64 off the table · 128 repurpose — asteroids /
+single-biome planets · 256 first passable multi-biome world · 512 can carry
+*more* biomes + structures, islands, lakes · **1024 = the full 1:1 Minecraft
+replication target** (biomes, lakes, oceans, islands, continents); larger
+still if optimization allows. Measured pain: **15 fps exploring at 1024** —
+optimize before going further.
+
 1. **E.8** optimize colossal → the default starting planet (the fun
    challenge: LOD far-mesh + streamed near-chunks, whole planet still
    visible from orbit; async/worker worldgen so the freeze dies)
