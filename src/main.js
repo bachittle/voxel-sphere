@@ -20,6 +20,7 @@ import'./input.js';
 // terrain+water live in per-chunk meshes (B.1): CH.dirty holds chunk ids whose
 // voxels changed; the frame loop re-meshes and re-uploads them.
 let chunkMs=[],mCore=null,mCutOp=null,mCutWa=null,mDisc=null;
+let cDirs=null;                         // per-chunk center directions (E.8 culling)
 let atlasTex=null,cutQuads=0,cutDirty=false;
 const loadEl=document.getElementById('load');
 const qvEl=document.getElementById('qv');
@@ -38,9 +39,15 @@ function regenerate(seed,importEdits){
     else PERSIST.loadDeltas(seed);
     CH.initChunks(P);CH.dirty.clear();
     freeChunks();freeMesh(mCore);
-    for(let id=0;id<CH.numChunks(P);id++){
+    const NC=CH.numChunks(P),M=P.N/CH.CS;
+    cDirs=new Float32Array(NC*3);
+    for(let id=0;id<NC;id++){
       const{op,wa}=CH.buildChunk(P,id);
-      chunkMs.push({op:upload(op),wa:upload(wa)});}
+      chunkMs.push({op:upload(op),wa:upload(wa)});
+      const f=(id/(M*M))|0,rr=id-f*M*M,cy=(rr/M)|0,cx0=rr-cy*M;
+      const col=f*P.n2+(cy*CH.CS+CH.CS/2)*P.N+cx0*CH.CS+CH.CS/2;
+      cDirs[id*3]=P.dir[col*3];cDirs[id*3+1]=P.dir[col*3+1];
+      cDirs[id*3+2]=P.dir[col*3+2];}
     mCore=upload(MESH.buildCore(P));
     freeMesh(mCutOp);freeMesh(mCutWa);freeMesh(mDisc);
     mCutOp=mCutWa=mDisc=null;cutQuads=0;cutDirty=true;
@@ -129,7 +136,7 @@ function frame(t){
   const a=cutEl.value/100,clip=2-2*a;
   // per-mode matrices (terrain lives in the planet frame; stars in world frame)
   const aspect=canvas.width/canvas.height;
-  let mvpT,mvpS,camP,starFade=1;
+  let mvpT,mvpS,camP,starFade=1,fpFwd=null;
   if(S.mode==='orbit'){
     const proj=perspective(1.0,aspect,0.05,120);
     const view=mul(translate(S.panX,S.panY,-S.dist),mul(rotX(S.pitch),rotY(S.yaw)));
@@ -141,7 +148,7 @@ function frame(t){
     const p=player,up=p.dir,eyeR=p.r+1.62*world.P.dr;
     const eye=[up[0]*eyeR,up[1]*eyeR,up[2]*eyeR];
     const cp=Math.cos(p.pitch),sp=Math.sin(p.pitch),h=p.head;
-    const fwd=[h[0]*cp+up[0]*sp,h[1]*cp+up[1]*sp,h[2]*cp+up[2]*sp];
+    const fwd=fpFwd=[h[0]*cp+up[0]*sp,h[1]*cp+up[1]*sp,h[2]*cp+up[2]*sp];
     const proj=perspective(SET.fov*Math.PI/180,aspect,0.0025,80); // near ~0.2 blocks: standing in a 1×1 shaft must not clip through its walls
     const view=lookAtM(eye,fwd,up);
     mvpT=mul(proj,view);
@@ -196,14 +203,36 @@ function frame(t){
   gl.uniform1i(U.uT,0);
   const lr=MESH.tileRect(T.LAVA);
   gl.uniform4f(U.uTileRect,lr[0],lr[1],lr[2],lr[3]);
-  for(const c of chunkMs)drawMesh(c.op,clip,0,1,0); // terrain+trees, block-clip
+  // E.8 v1 culling: a chunk beyond the planet's limb (occluder sphere at the
+  // lowest terrain) can't be seen; in FP, chunks behind the eye can't either.
+  // 24,576 chunks at N=1024 → a few thousand actual draws.
+  const cdist=Math.hypot(camP[0],camP[1],camP[2]);
+  const Rocc=world.P.radius(4),Rmax=1+30*world.P.dr;
+  let cosLim=-1;
+  if(cdist>Rocc){
+    const a=Math.acos(Math.min(1,Rocc/cdist))+Math.acos(Math.min(1,Rocc/Rmax))
+           +(CH.CS/world.P.N)*Math.PI;       // chunk angular pad
+    if(a<Math.PI)cosLim=Math.cos(a);}
+  const icd=1/cdist,cdx=camP[0]*icd,cdy=camP[1]*icd,cdz=camP[2]*icd;
+  const span=CH.CS*world.P.dr*1.6;           // behind-the-eye pad (FP only)
+  const visible=id=>{
+    const o=id*3,dx2=cDirs[o],dy2=cDirs[o+1],dz2=cDirs[o+2];
+    if(dx2*cdx+dy2*cdy+dz2*cdz<cosLim)return false;
+    if(fpFwd&&(dx2-camP[0])*fpFwd[0]+(dy2-camP[1])*fpFwd[1]
+             +(dz2-camP[2])*fpFwd[2]<-span)return false;
+    return true;};
+  let drawn=0;
+  for(let id=0;id<chunkMs.length;id++)
+    if(visible(id)){drawMesh(chunkMs[id].op,clip,0,1,0);drawn++;}
+  VS._drawnChunks=drawn;
   drawMesh(mCutOp,10,0,1,0);                  // cutaway skin, no clip
   drawMesh(mCore,clip,1,1,1);                 // lava ball, fragment-clip, tiled
   if(a>0.001)drawMesh(mDisc,10,0,1,1);        // lava disc at the cut plane
   // water (translucent)
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.depthMask(false);
-  for(const c of chunkMs)drawMesh(c.wa,clip,0,0.72,0);
+  for(let id=0;id<chunkMs.length;id++)
+    if(visible(id))drawMesh(chunkMs[id].wa,clip,0,0.72,0);
   drawMesh(mCutWa,10,0,0.72,0);
   gl.depthMask(true);gl.disable(gl.BLEND);
   // block-target outline (B.2)

@@ -329,13 +329,16 @@ surface distortion accepted for now.
   arm-to-confirm (select twice; verified it warns + reverts). The matCache
   bomb (528MB at 1024) is defused: N≥512 skips the cache and recomputes
   (mat() is cheap). Measured 1024 worldgen: 2.9s / 293MB heap in Node —
-  in-browser full meshing (24,576 chunks) still untested. **Remaining — now queue #1
-  (Bailey: colossal = target starting planet):** lazy/progressive chunk
-  meshing for planets you can still *see whole* from orbit — likely a
-  low-LOD far mesh (whole planet, heightmap-only) + real chunks streamed in
-  near the player; worker/async worldgen to kill the generate freeze; watch
-  GPU memory (mesh bytes scale ~N²) and per-frame draw calls (24,576 chunks
-  can't each be a drawMesh call — batch or cull).
+  in-browser full meshing (24,576 chunks) still untested. **Culling v1 shipped (2026-07-03
+  night):** horizon culling (occluder sphere at the lowest terrain — chunks
+  beyond the limb skipped) + FP behind-the-eye rejection. Measured at 1024:
+  FP draws 24,576 → ~2,900–5,800 chunks, **15 fps → 48–60 fps**; orbit
+  culls ~38% (51 fps). No visual holes (pads are conservative).
+  **Remaining:** frustum culling (FP still draws the full visible cap, not
+  just the view wedge), orbit LOD far-mesh / batching (orbit is now the slow
+  view), worker/async worldgen to kill the generate freeze, GPU-memory
+  audit. Bailey: colossal = target starting planet; even larger sizes if
+  optimization allows.
 - **E.9 ⬜ Planet types / archetypes (Bailey, 2026-07-03 — idea catalog,
   deliberately wide)** — themed worldgen presets alongside size: a preset =
   profile overrides (sea level, amplitude, biome table, palette, features).
