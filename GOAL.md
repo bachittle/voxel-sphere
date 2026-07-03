@@ -334,6 +334,19 @@ surface distortion accepted for now.
   beyond the limb skipped) + FP behind-the-eye rejection. Measured at 1024:
   FP draws 24,576 → ~2,900–5,800 chunks, **15 fps → 48–60 fps**; orbit
   culls ~38% (51 fps). No visual holes (pads are conservative).
+  **Bug (Bailey, 2026-07-03): culling artifacts that amplify with world
+  size** — doesn't destroy playability; needs repro + fix. Suspects, most
+  likely first: (a) chunk *centers* are stored as unit-sphere dirs but chunk
+  geometry spans radius ~0.92→1.05 — the FP behind-the-eye plane test pads
+  laterally (1.6×CS×dr) but not radially, so deep floors / tall peaks near
+  the eye plane can vanish at glancing pitches; (b) treetops on max-height
+  mountains exceed the Rmax=1+30dr horizon allowance by a few shells —
+  distant canopy pop; (c) hard pop-in at the limb line as chunks cross the
+  horizon threshold while walking (inherent to binary culling — bigger pad
+  or hysteresis). Cheap first move: raise pads (radial term in the FP test,
+  Rmax→1+40dr) and see if it dies; costs a few % more draws. Need from
+  Bailey: what it looks like (edge-of-screen vanish? horizon flicker?
+  missing water?) and view mode.
   **Remaining:** frustum culling (FP still draws the full visible cap, not
   just the view wedge), orbit LOD far-mesh / batching (orbit is now the slow
   view), worker/async worldgen to kill the generate freeze, GPU-memory
