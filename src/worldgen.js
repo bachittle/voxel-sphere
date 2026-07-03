@@ -40,12 +40,22 @@ const BIOME_NAMES=['ocean','beach','plains','forest','desert','mountain','snowca
 
 const DI=[-1,1,0,0],DJ=[0,0,-1,1];
 
+// E.7: worldgen scales with planet size — small = flat toy sandbox, normal =
+// the frozen reference world (N=128 MUST stay byte-identical to
+// reference-v2.json), large = bolder relief and denser life.
+function profile(N){
+  if(N<96)  return{amp:12,band:4,mmBias:0.35,trees:0.8};  // small: flat & simple
+  if(N<192) return{amp:26,band:4,mmBias:0,trees:1};       // normal: reference — do not touch
+  return{amp:30,band:4,mmBias:-0.08,trees:1.25};          // large+: more mountains & woods
+}
+
 // ---- planet construction ----
 function init(seed,N){
   const n2=N*N,cols=6*n2;
   const dr=Math.PI/(2*N);            // shell thickness = block width at surface
   const SEA=57;                      // shells below sea level (r=1)
   const SH=SEA+27;                   // max shells stored (mountain ceiling)
+  const PR=profile(N);
   const per=makePerlin(seed);
   const fbm=(x,y,z,f,oct)=>{let a=0.5,s=0,n=0;
     for(let o=0;o<oct;o++){s+=a*per(x*f,y*f,z*f);n+=a;f*=2;a*=0.5;}return s/n;};
@@ -76,9 +86,9 @@ function init(seed,N){
       const cont=fbm(x,y,z,1.5,4);
       const mmask=fbm(x+31.4,y+47.2,z+12.9,3.1,3);
       const ridge=1-Math.abs(fbm(x+91.3,y+13.7,z+55.1,4.8,4));
-      const tb=(cont*26+1.2)/4,tf=Math.floor(tb);
-      let hR=4*(tf+Math.min(1,Math.max(0,(tb-tf-0.5)/0.18+0.5)));
-      const mm=Math.min(1,Math.max(0,(mmask-0.02)/0.5));
+      const tb=(cont*PR.amp+1.2)/PR.band,tf=Math.floor(tb);
+      let hR=PR.band*(tf+Math.min(1,Math.max(0,(tb-tf-0.5)/0.18+0.5)));
+      const mm=Math.min(1,Math.max(0,(mmask-0.02-PR.mmBias)/0.5));
       hR+=mm*mm*ridge*ridge*22;
       const h=Math.max(4,Math.min(SEA+25,SEA-1+Math.round(hR)));
       H[col]=h;
@@ -104,6 +114,7 @@ function init(seed,N){
   for(let col=0;col<cols;col++){const b=BI[col];
     let dens=0;if(b===B.FOREST)dens=0.045;else if(b===B.PLAINS)dens=0.006;
     else if(b===B.TUNDRA)dens=0.004;
+    dens*=PR.trees;
     if(!dens||hash01(col,seed)>=dens)continue;
     const th=4+(hash01(col,seed^0xBEEF)*2|0);      // trunk 4-5
     const blocks=new Map();                        // "x,y,z" -> tile
@@ -140,7 +151,10 @@ function init(seed,N){
         const ck=c*SH+s;
         if(!treeCells.has(ck))treeCells.set(ck,tile);}}
 
-  const matCache=new Int8Array(cols*SH); // 0 unknown, 1 cave-air, else tile+2
+  // 0 unknown, 1 cave-air, else tile+2. E.8: at N≥512 the flat cache would be
+  // 132MB–528MB — skip it and recompute (mat() is cheap, meshing only asks
+  // about exposed cells)
+  const matCache=N<=256?new Int8Array(cols*SH):null;
   return{seed,N,n2,cols,dr,SEA,SH,radius,rc,BALLR,corner,CN,dir,H,BI,trees,
          treeCells,per,fbm,matCache};
 }
@@ -178,8 +192,9 @@ function underTile(P,col){const b=P.BI[col];
 
 // material of block (col, shell s), s<=H[col]. -1 = cave air. cached.
 function mat(P,col,s){
-  const ck=col*P.SH+s,cv=P.matCache[ck];
-  if(cv!==0)return cv===1?-1:cv-2;
+  const ck=col*P.SH+s;
+  if(P.matCache){const cv=P.matCache[ck];
+    if(cv!==0)return cv===1?-1:cv-2;}
   const h=P.H[col],d=h-s;let t;
   if(s<=1)t=T.LAVA;
   else if(s===2)t=T.BEDROCK;             // C.2: the unbreakable cap, visible
@@ -194,7 +209,7 @@ function mat(P,col,s){
     else if(d>=4&&d<=26&&P.per((x+6.5)*11.3,(y+5.1)*11.3,(z+9.9)*11.3)>0.38)t=T.COAL;
     else t=T.STONE;
   }
-  P.matCache[ck]=t===-1?1:t+2;
+  if(P.matCache)P.matCache[ck]=t===-1?1:t+2;
   return t;
 }
 function matSolid(P,col,s){const m=mat(P,col,s);return m<0?T.STONE:m;}

@@ -18,21 +18,16 @@ playtest: the world fights the builder, so world-shaping beats sky polish).
 
 ## Now → Next (reprioritized 2026-07-03)
 
-1. **E.5** controls menu — trivial; the self-documenting rule starts now
-2. **E.6** planet-fixed camera when auto-orbit is off — small bug-feel fix
-3. **E.1** flat spots — biggest playability lever. **Bundle the oracle
-   break:** one commit retires Build-1 byte-equivalence, adds C.2's visible
-   bedrock tile, and re-aims the checks at a new frozen reference (v2) —
-   one intentional worldgen break instead of two. (This is also the first
-   slice of S.5.)
-4. **E.2** world settings + save v2 — flatness slider ships into it
-5. **A.2** GitHub Pages — share it once building feels good (needs Bailey's
-   OK to create the public repo)
-6. **E.3** depth shell merges — the big one; grill/spec first, probe artifact
-   like 0.1 before committing to the chunk-format rewrite
-7. **Phase D**, by value-per-effort: **D.5** water → **D.2** sun disc
-   (half-built, uncommitted) → **D.1** vegetation → **0.2** clouds probe →
-   **D.3** clouds → **D.4** moon
+*(updated 2026-07-03 evening — E.5/E.6/E.1/E.2/A.2/D.2 all landed; game is
+live at chittle.cc/voxel-sphere)*
+
+1. **E.7** size-profile tuning + **E.9** planet types — Bailey's active
+   experiment loop; start with all-ocean + all-desert presets
+2. **E.3** depth shell merges — grill/spec first, probe artifact like 0.1
+3. **E.8** lazy/progressive chunk meshing for 512/1024 (the fun challenge:
+   LOD far-mesh + streamed near-chunks, planet still whole from orbit)
+4. **Phase D**, by value-per-effort: **D.5** water → **D.1** vegetation →
+   **0.2** clouds probe → **D.3** clouds → **D.4** moon
 
 ---
 
@@ -298,24 +293,36 @@ surface distortion accepted for now.
   Y-rotations, so constant sum ⇔ frozen terrain); sun/stars sweep instead.
   *Verifier (Bailey, 10s):* uncheck auto-orbit with spin up → terrain
   freezes while the terminator still moves.
-- **E.7 ⬜ Size-aware worldgen profiles (Bailey, 2026-07-03)** — observed:
-  current gen is weakest at small (64), ok at normal, best at large (256).
-  Make worldgen a function of planet size: **small = flat, simple, toy-like**
-  (mostly plains, minimal mountains — a building sandbox); **normal =
-  current**; **large = more diverse terrain types and ecosystems** (more
-  biomes, bigger climate zones, rarer features worth traveling to). Probably
-  a `profile(N)` that scales noise frequencies, terrace band size, mountain
-  mask threshold, and biome thresholds. Reference snapshots only exist for
-  N=128, so this is oracle-safe at other sizes; changing 128 means
-  re-baking.
-- **E.8 ⬜ Very large worlds: N=512 / 1024** — feasibility numbers (N=128
-  baseline: 98k cols, 87ms build): cols scale 6N² → 512 = 1.57M cols
-  (~1.4s build), 1024 = 6.3M (~6s). The blocker is `matCache`
-  (Int8Array(cols×84)): 132MB at 512, **528MB at 1024** — needs to go
-  sparse/per-chunk or die (recompute is cheap); mesh memory + initial
-  full-planet meshing also want lazy per-chunk builds at 1024. 512 likely
-  works today behind the loading overlay; try it first. Chunk count at CS=16:
-  6144 (512) / 24576 (1024) — rebuildDirty's 8/frame budget still fine.
+- **E.7 🔄 Size-aware worldgen profiles (v1 shipped 2026-07-03)** —
+  `profile(N)` in worldgen: **small** = flat & simple (amp 12, rare
+  mountains, fewer trees → 37% flat 5×5), **normal** = the frozen reference
+  (N=128 byte-identical, verified), **large+** = bolder relief + 1.25×
+  trees (23% flat at 256). *Open:* tuning is eyeball-work — Bailey plays,
+  we turn knobs; "more diverse ecosystems" (new biomes, rarer features)
+  still wants real design, possibly with E.9's planet types. Oracle-safe at
+  every size but 128.
+- **E.8 🔄 Very large worlds: 512 / 1024 selectable (2026-07-03)** — size
+  menu gained **huge (512)** — warns, then generates (measured: 2.0s
+  worldgen+mesh in browser) — and **colossal (1024)** behind an
+  arm-to-confirm (select twice; verified it warns + reverts). The matCache
+  bomb (528MB at 1024) is defused: N≥512 skips the cache and recomputes
+  (mat() is cheap). Measured 1024 worldgen: 2.9s / 293MB heap in Node —
+  in-browser full meshing (24,576 chunks) still untested. **Remaining — the
+  fun engineering challenge:** lazy/progressive chunk meshing for planets
+  you can still *see whole* from orbit — likely a low-LOD far mesh (whole
+  planet, heightmap-only) + real chunks streamed in near the player.
+- **E.9 ⬜ Planet types / archetypes (Bailey, 2026-07-03 — idea catalog,
+  deliberately wide)** — themed worldgen presets alongside size: a preset =
+  profile overrides (sea level, amplitude, biome table, palette, features).
+  Sci-fi archetype pool to draw from: **all-ocean** (Kamino), **archipelago**,
+  **all-desert dunes** (Tatooine / Arrakis), **ice world** (Hoth),
+  **lava world** (Mustafar — raise the core?), **shallow-ocean giant-wave
+  world** (Miller's planet, Interstellar), **forest moon** (Endor),
+  **swamp** (Dagobah), **mushroom world**, **canyon/terraced badlands**,
+  **city planet** (Coruscant — far future). UI: a "type" selector next to
+  seed/size; each (seed, N, type) keys its own save (save v3 or fold type
+  into the seed?). Start with the two easiest: all-ocean and all-desert —
+  both are mostly *removing* terms from the current gen.
 - **E.5 ✅ Controls reference in the pause menu (2026-07-03)** — collapsible
   Controls section (native <details>) in the ESC menu listing every binding,
   desktop + touch, 15 rows. **Standing rule: any future control lands with

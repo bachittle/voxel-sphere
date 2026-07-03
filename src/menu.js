@@ -68,7 +68,18 @@ document.getElementById('mReset').addEventListener('click',()=>{
 const reshape=()=>window.dispatchEvent(new CustomEvent('vs-world',
   {detail:{seed:+seedI.value,N:+sizeI.value}}));
 seedI.addEventListener('change',reshape);
-sizeI.addEventListener('change',reshape);
+// E.8: 512 warns and proceeds; 1024 must be selected twice (arm-to-confirm)
+let armT=0;
+sizeI.addEventListener('change',()=>{
+  const N=+sizeI.value;
+  if(N===1024&&Date.now()-armT>15000){
+    armT=Date.now();
+    sizeI.value=String(SET.worldN);
+    status('⚠ 1024 is experimental: long freeze + heavy memory. Select it again to confirm.');
+    return;}
+  if(N>=512)status(N===512?'huge world — generating takes a few seconds…'
+                          :'⚠ colossal world — hold on, this will freeze for a while…');
+  reshape();});
 document.getElementById('mDice').addEventListener('click',()=>{
   seedI.value=(Math.random()*1e6)|0;reshape();});
 export function reflectWorld(seed,N){seedI.value=seed;sizeI.value=String(N);}
