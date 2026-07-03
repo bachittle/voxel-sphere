@@ -87,10 +87,26 @@ diagnosed and fixed in the modular build (A.4 ✅).
 
 ## Phase B — The Loop ⬜ (where it becomes a game)
 
-- **B.1 ⬜ Mutable chunks + re-meshing** — world edits change voxel data and
-  re-mesh the affected chunk(s) fast, including edits that cross cube-face
-  seams and onion shell-merge boundaries. *Verifier:* edit anywhere — surface,
-  seam, deep shell — with no holes or stale geometry.
+- **B.1 ✅ Mutable chunks + re-meshing (2026-07-02)** — `src/chunks.js`: the
+  planet cut into 16×16-column × full-depth chunks (384 total), each meshed
+  from per-column 96-bit solidity masks (terrain + trees + edits − open
+  caves); a face exists wherever a solid bit meets an air bit, so seams and
+  chunk borders come free from `neighbor()`. Caves stay closed (meshed solid,
+  Build 1's papering) until a dig floods the touched pocket open via BFS —
+  probe measured 190 sealed pockets, largest ~20k cells, so reveals are
+  bounded. Perf: full build 87ms, single-chunk remesh 0.17ms median, cave
+  reveal ~6ms; 86–92fps in browser. Extras that rode along: edit-aware
+  `groundR` (fall into pits, stand on placed blocks; trees still non-solid,
+  ceiling check minimal — real voxel collision lands with B.3/B.4), throwaway
+  click-dig / right-click-place raycast (`interact.js`, B.2 replaces it), FP
+  near plane 0.49→0.2 blocks (standing in a 1×1 shaft no longer clips through
+  the wall). Known gap: the cutaway view renders pure worldgen — edits don't
+  appear in cross-section. *Verified:* `chunk-check.mjs` — unedited chunked
+  face set **identical** to Build 1 (terrain+water, 3 seeds), incremental
+  remesh == full rebuild across 9 edit scripts (surface, pit, face seam, cube
+  corner, chunk border, floating block, re-dig, pocket reveal, re-seal), zero
+  coincident quads; browser smoke: dig staircase/shaft, fall in, place block,
+  dig into a 1,372-cell cave pocket and walk its floor.
 - **B.2 ⬜ Raycast block targeting** — crosshair picks the aimed block +
   face; highlight outline. *Verifier:* the outlined cell is always the one
   that breaks.
@@ -184,4 +200,5 @@ Depth — 3D nearest-neighbor spacing, max÷min through the solid sphere:
 `cubed-sphere.html`, `heatmap.html`, `depth.html`, `cubed-sphere-planet.html`
 → Build 1 (frozen). *Checks:* `compute-ratio.mjs`, `measure-all.mjs`,
 `depth-measure.mjs`, `planet-check.mjs` (Build 1), `game-check.mjs` (modular
-vs Build 1), `icosphere-check.mjs`.
+vs Build 1), `icosphere-check.mjs`, `chunk-check.mjs` (B.1 chunked mesher vs
+Build 1 + incremental-vs-full edit oracle).

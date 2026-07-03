@@ -224,4 +224,4 @@ function buildDisc(P,clip){
   return m;
 }
 
-export{tileRect,MB,emitQuad,buildStatic,buildCut,buildCore,buildDisc};
+export{tileRect,MB,emitQuad,cornerAt,edgeCorners,buildStatic,buildCut,buildCore,buildDisc};

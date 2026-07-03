@@ -4,6 +4,8 @@ import{T}from'./worldgen.js';
 import{buildAtlas}from'./textures.js';
 import{S,SUNW}from'./state.js';
 import{world,generate}from'./world.js';
+import*as CH from'./chunks.js';
+import*as INTERACT from'./interact.js';
 import{player,stepPlayer}from'./player.js';
 import{canvas,gl,mainP,U,starP,sU,sFade,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
        starMesh,ATM_R,upload,freeMesh,drawMesh,resize}from'./gl.js';
@@ -11,25 +13,49 @@ import{perspective,mul,rotX,rotY,translate,rotYv,rotXv,vdot,sstep,lookAtM}from'.
 import'./input.js';
 
 // ===== planet build / GL mesh state =====
-let mTerr=null,mWater=null,mCore=null,mCutOp=null,mCutWa=null,mDisc=null;
+// terrain+water live in per-chunk meshes (B.1): CH.dirty holds chunk ids whose
+// voxels changed; the frame loop re-meshes and re-uploads them.
+let chunkMs=[],mCore=null,mCutOp=null,mCutWa=null,mDisc=null;
 let atlasTex=null,cutQuads=0,cutDirty=false;
 const loadEl=document.getElementById('load');
+const qvEl=document.getElementById('qv');
+
+function freeChunks(){for(const c of chunkMs){freeMesh(c.op);freeMesh(c.wa);}chunkMs=[];}
+function updateQv(){let q=0;for(const c of chunkMs)q+=c.op.quads+c.wa.quads;
+  qvEl.textContent=q.toLocaleString();}
 
 function regenerate(seed){
   loadEl.classList.remove('off');
   setTimeout(()=>{
     const P=generate(seed);
-    const{op,wa}=MESH.buildStatic(P);
-    freeMesh(mTerr);freeMesh(mWater);freeMesh(mCore);
-    mTerr=upload(op);mWater=upload(wa);mCore=upload(MESH.buildCore(P));
+    CH.initChunks(P);CH.dirty.clear();
+    freeChunks();freeMesh(mCore);
+    for(let id=0;id<CH.numChunks(P);id++){
+      const{op,wa}=CH.buildChunk(P,id);
+      chunkMs.push({op:upload(op),wa:upload(wa)});}
+    mCore=upload(MESH.buildCore(P));
     freeMesh(mCutOp);freeMesh(mCutWa);freeMesh(mDisc);
     mCutOp=mCutWa=mDisc=null;cutQuads=0;cutDirty=true;
-    document.getElementById('qv').textContent=(mTerr.quads+mWater.quads).toLocaleString();
+    updateQv();
     document.getElementById('cols').textContent=P.cols.toLocaleString();
     document.getElementById('trees').textContent=P.trees.length;
     document.getElementById('cq').textContent='0';
     loadEl.classList.add('off');
   },30);}
+
+// re-mesh edited chunks, a bounded batch per frame (a cave reveal can dirty
+// dozens; typical edits dirty <=5)
+function rebuildDirty(){
+  if(!CH.dirty.size)return;
+  let n=0;
+  for(const id of CH.dirty){
+    if(n++>=8)break;
+    CH.dirty.delete(id);
+    const{op,wa}=CH.buildChunk(world.P,id);
+    freeMesh(chunkMs[id].op);freeMesh(chunkMs[id].wa);
+    chunkMs[id]={op:upload(op),wa:upload(wa)};}
+  if(!CH.dirty.size)updateQv();
+}
 
 // ===== UI wiring =====
 const cutEl=document.getElementById('cut'),cutVal=document.getElementById('cutval');
@@ -82,6 +108,7 @@ function frame(t){
       String((hh%1*60)|0).padStart(2,'0');}
   if(S.mode==='fp')stepPlayer(dt/1000);
   else if(spinEl.checked&&!S.drag)S.yaw+=0.0011*dt*0.06;
+  rebuildDirty();
   if(cutDirty){cutDirty=false;rebuildCut();}
   const a=cutEl.value/100,clip=2-2*a;
   // per-mode matrices (terrain lives in the planet frame; stars in world frame)
@@ -99,7 +126,7 @@ function frame(t){
     const eye=[up[0]*eyeR,up[1]*eyeR,up[2]*eyeR];
     const cp=Math.cos(p.pitch),sp=Math.sin(p.pitch),h=p.head;
     const fwd=[h[0]*cp+up[0]*sp,h[1]*cp+up[1]*sp,h[2]*cp+up[2]*sp];
-    const proj=perspective(1.15,aspect,0.006,80);
+    const proj=perspective(1.15,aspect,0.0025,80); // near ~0.2 blocks: standing in a 1×1 shaft must not clip through its walls
     const view=lookAtM(eye,fwd,up);
     mvpT=mul(proj,view);
     mvpS=mul(mul(proj,view),rotY(-S.theta)); // stars sweep the FP sky as we turn
@@ -131,14 +158,14 @@ function frame(t){
   gl.uniform1i(U.uT,0);
   const lr=MESH.tileRect(T.LAVA);
   gl.uniform4f(U.uTileRect,lr[0],lr[1],lr[2],lr[3]);
-  drawMesh(mTerr,clip,0,1,0);                 // terrain+trees, block-clip
+  for(const c of chunkMs)drawMesh(c.op,clip,0,1,0); // terrain+trees, block-clip
   drawMesh(mCutOp,10,0,1,0);                  // cutaway skin, no clip
   drawMesh(mCore,clip,1,1,1);                 // lava ball, fragment-clip, tiled
   if(a>0.001)drawMesh(mDisc,10,0,1,1);        // lava disc at the cut plane
   // water (translucent)
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.depthMask(false);
-  drawMesh(mWater,clip,0,0.72,0);
+  for(const c of chunkMs)drawMesh(c.wa,clip,0,0.72,0);
   drawMesh(mCutWa,10,0,0.72,0);
   gl.depthMask(true);gl.disable(gl.BLEND);
   // atmosphere rim glow (orbital only; additive)
@@ -158,7 +185,8 @@ function frame(t){
 }
 
 // debug/test handle (browser-automation smoke tests hook in here)
-window.VS={S,world,player};
+window.VS={S,world,player,chunks:CH,interact:INTERACT,
+  edit:(col,s,tile)=>CH.editBlock(col,s,tile)};
 
 // ===== boot =====
 (async()=>{

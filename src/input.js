@@ -5,14 +5,23 @@ import{S}from'./state.js';
 import{canvas}from'./gl.js';
 import{world}from'./world.js';
 import{player,move,fpLook,groundR}from'./player.js';
+import{dig,place}from'./interact.js';
 import{vnorm,clampf,rotYv}from'./math.js';
 
 // ===== camera (orbital controls identical to demo.html; drag = look in FP) ====
-let lx=0,ly=0;
-canvas.addEventListener('mousedown',e=>{S.drag=true;lx=e.clientX;ly=e.clientY;});
-window.addEventListener('mouseup',()=>S.drag=false);
+// In FP a click that barely moved = dig (throwaway pre-B.2 interaction);
+// a drag = look. Right-click = place.
+let lx=0,ly=0,downT=0,moved=1e9;
+canvas.addEventListener('mousedown',e=>{S.drag=true;lx=e.clientX;ly=e.clientY;
+  downT=performance.now();moved=0;});
+window.addEventListener('mouseup',e=>{S.drag=false;
+  if(S.mode==='fp'&&e.button===0&&moved<5&&performance.now()-downT<300)dig();
+  moved=1e9;});
+canvas.addEventListener('contextmenu',e=>{e.preventDefault();
+  if(S.mode==='fp'&&moved<5)place();});
 window.addEventListener('mousemove',e=>{if(!S.drag)return;
   const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+  moved+=Math.abs(dx)+Math.abs(dy);
   if(S.mode==='fp'){fpLook(dx,dy);return;}
   S.yaw+=dx*0.01;S.pitch=Math.max(-1.5,Math.min(1.5,S.pitch+dy*0.01));});
 canvas.addEventListener('wheel',e=>{e.preventDefault();if(S.mode==='fp')return;
@@ -92,7 +101,7 @@ function enterFP(){
   player.head=vnorm(h);
   S.mode='fp';document.body.classList.add('fp');
   modeBtn.textContent='🛰 orbit view';
-  hintEl.textContent='WASD/joystick walk · drag to look · space/⭡ jump · F/✈ fly';}
+  hintEl.textContent='WASD walk · drag look · space jump · F fly · click dig · right-click place';}
 function exitFP(){
   const d=rotYv(player.dir,S.theta);     // back to world frame for the orbit cam
   S.pitch=clampf(Math.asin(clampf(d[1],-1,1)),-1.5,1.5);
