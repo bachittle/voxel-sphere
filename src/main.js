@@ -21,6 +21,7 @@ import'./input.js';
 // voxels changed; the frame loop re-meshes and re-uploads them.
 let chunkMs=[],mCore=null,mCutOp=null,mCutWa=null,mDisc=null;
 let cDirs=null;                         // per-chunk center directions (E.8 culling)
+let mLodOp=null,mLodWa=null;            // orbit far-LOD (E.8), built lazily
 let atlasTex=null,cutQuads=0,cutDirty=false;
 const loadEl=document.getElementById('load');
 const qvEl=document.getElementById('qv');
@@ -50,6 +51,7 @@ function regenerate(seed,importEdits){
       cDirs[id*3+2]=P.dir[col*3+2];}
     mCore=upload(MESH.buildCore(P));
     freeMesh(mCutOp);freeMesh(mCutWa);freeMesh(mDisc);
+    freeMesh(mLodOp);freeMesh(mLodWa);mLodOp=mLodWa=null;
     mCutOp=mCutWa=mDisc=null;cutQuads=0;cutDirty=true;
     updateQv();
     document.getElementById('cols').textContent=P.cols.toLocaleString();
@@ -221,8 +223,19 @@ function frame(t){
     if(fpFwd&&(dx2-camP[0])*fpFwd[0]+(dy2-camP[1])*fpFwd[1]
              +(dz2-camP[2])*fpFwd[2]<-span)return false;
     return true;};
+  // E.8 far-LOD (Bailey's design): zoomed-out orbit swaps the full block mesh
+  // for a nearest-neighbor decimated one (k = N/128 → always ~a 128-planet's
+  // quads) — kills sub-pixel triangle shimmer AND the 15k-draw-call orbit.
+  // Full mesh returns when zooming in, when the cutaway opens, or in FP.
+  const lodK=world.P.N>>7;
+  const lodOn=S.mode==='orbit'&&lodK>1&&a<=0.001&&
+    (S.dist-1)*1.0/canvas.height>world.P.dr*0.75; // block < ~1.3px
+  if(lodOn&&!mLodOp){
+    const l=MESH.buildLOD(world.P,lodK);
+    mLodOp=upload(l.op);mLodWa=upload(l.wa);}
   let drawn=0;
-  for(let id=0;id<chunkMs.length;id++)
+  if(lodOn){drawMesh(mLodOp,clip,0,1,0);drawn=-1;} // -1 marks LOD active
+  else for(let id=0;id<chunkMs.length;id++)
     if(visible(id)){drawMesh(chunkMs[id].op,clip,0,1,0);drawn++;}
   VS._drawnChunks=drawn;
   drawMesh(mCutOp,10,0,1,0);                  // cutaway skin, no clip
@@ -231,7 +244,8 @@ function frame(t){
   // water (translucent)
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.depthMask(false);
-  for(let id=0;id<chunkMs.length;id++)
+  if(lodOn)drawMesh(mLodWa,clip,0,0.72,0);
+  else for(let id=0;id<chunkMs.length;id++)
     if(visible(id))drawMesh(chunkMs[id].wa,clip,0,0.72,0);
   drawMesh(mCutWa,10,0,0.72,0);
   gl.depthMask(true);gl.disable(gl.BLEND);

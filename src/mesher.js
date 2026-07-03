@@ -119,6 +119,50 @@ function buildStatic(P){
   return{op,wa};
 }
 
+// ---- orbit LOD mesh (E.8): nearest-neighbor decimation of the surface ----
+// Samples every k-th column (center cell wins), emits one top quad per k×k
+// block plus coarse single-quad cliffs where adjacent samples differ — the
+// planet reads identically from orbit at ~1/k² the quads, and the sub-pixel
+// triangle shimmer dies. Trees/edits deliberately absent (invisible at
+// range). Face-edge walls are skipped (heights are continuous across seams).
+function buildLOD(P,k){
+  const{N,n2,SEA}=P;
+  const op=MB(),wa=MB();
+  const A=[0,0,0],Bp=[0,0,0],C=[0,0,0],D=[0,0,0];
+  const DI4=[-1,1,0,0],DJ4=[0,0,-1,1];
+  const colAt=(f,i0,j0)=>f*n2+(j0+(k>>1))*N+(i0+(k>>1));
+  // k-cell side-wall corner pairs, same convention as edgeCorners()
+  const ecK=(i0,j0,d)=>d===0?[[i0,j0],[i0,j0+k]]:d===1?[[i0+k,j0],[i0+k,j0+k]]:
+                       d===2?[[i0,j0],[i0+k,j0]]:[[i0,j0+k],[i0+k,j0+k]];
+  for(let f=0;f<6;f++)for(let j0=0;j0<N;j0+=k)for(let i0=0;i0<N;i0+=k){
+    const col=colAt(f,i0,j0);
+    const h=P.H[col],dx=P.dir[col*3],dy=P.dir[col*3+1],dz=P.dir[col*3+2];
+    const rt=P.radius(h+1),cx=Math.fround(dx*P.rc(h));
+    cornerAt(P,f,i0,j0,rt,A);cornerAt(P,f,i0+k,j0,rt,Bp);
+    cornerAt(P,f,i0+k,j0+k,rt,C);cornerAt(P,f,i0,j0+k,rt,D);
+    emitQuad(op,A,Bp,C,D,dx,dy,dz,topTile(P,col),1.0,cx);
+    if(h<SEA-1){
+      const rw=P.radius(SEA);
+      cornerAt(P,f,i0,j0,rw,A);cornerAt(P,f,i0+k,j0,rw,Bp);
+      cornerAt(P,f,i0+k,j0+k,rw,C);cornerAt(P,f,i0,j0+k,rw,D);
+      emitQuad(wa,A,Bp,C,D,dx,dy,dz,T.WATER,1.0,Math.fround(dx*P.rc(SEA-1)));}
+    // coarse cliffs: one quad per neighbor sample sitting lower (taller emits)
+    for(let d=0;d<4;d++){
+      const ni=i0+DI4[d]*k,nj=j0+DJ4[d]*k;
+      if(ni<0||ni>=N||nj<0||nj>=N)continue; // face seams: heights continuous
+      const hn=P.H[colAt(f,ni,nj)];
+      if(hn>=h)continue;
+      const n=colAt(f,ni,nj);
+      const ox=P.dir[n*3]-dx,oy=P.dir[n*3+1]-dy,oz=P.dir[n*3+2]-dz;
+      const[[c0i,c0j],[c1i,c1j]]=ecK(i0,j0,d);
+      const ri=P.radius(hn+1);
+      cornerAt(P,f,c0i,c0j,rt,A);cornerAt(P,f,c1i,c1j,rt,Bp);
+      cornerAt(P,f,c1i,c1j,ri,C);cornerAt(P,f,c0i,c0j,ri,D);
+      emitQuad(op,A,Bp,C,D,ox,oy,oz,sideTile(P,col),0.82,cx);}
+  }
+  return{op,wa};
+}
+
 // ---- cutaway cross-section mesh for clip plane x=clip ----
 function buildCut(P,clip){
   const{N,n2,cols,H,SEA}=P;
@@ -224,4 +268,4 @@ function buildDisc(P,clip){
   return m;
 }
 
-export{tileRect,MB,emitQuad,cornerAt,edgeCorners,buildStatic,buildCut,buildCore,buildDisc};
+export{tileRect,MB,emitQuad,cornerAt,edgeCorners,buildStatic,buildLOD,buildCut,buildCore,buildDisc};

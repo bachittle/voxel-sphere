@@ -347,10 +347,18 @@ surface distortion accepted for now.
   Rmax→1+40dr) and see if it dies; costs a few % more draws. Need from
   Bailey: what it looks like (edge-of-screen vanish? horizon flicker?
   missing water?) and view mode.
+  **Far-LOD v1 shipped (2026-07-03 night, Bailey's design):** zoomed-out
+  orbit swaps the chunk meshes for a nearest-neighbor decimated mesh
+  (`buildLOD(P, k=N/128)` — every k-th column's top + water + coarse
+  one-quad cliffs, built lazily, ~170k quads at any size). Kills both the
+  sub-pixel triangle shimmer Bailey diagnosed AND orbit draw calls
+  (15k → 2). Measured at 1024: orbit 60 fps, swap verified both ways
+  (zoom in → full mesh, cutaway forces full). LOD ignores trees/edits
+  (invisible at range) and face-seam cliffs (heights continuous).
   **Remaining:** frustum culling (FP still draws the full visible cap, not
-  just the view wedge), orbit LOD far-mesh / batching (orbit is now the slow
-  view), worker/async worldgen to kill the generate freeze, GPU-memory
-  audit. Bailey: colossal = target starting planet; even larger sizes if
+  just the view wedge), worker/async worldgen to kill the generate freeze,
+  GPU-memory audit, culling-artifact bug above, and someday LOD levels for
+  mid-zoom + distant planets (S.6 reuse — Bailey called this). Bailey: colossal = target starting planet; even larger sizes if
   optimization allows.
 - **E.9 ⬜ Planet types / archetypes (Bailey, 2026-07-03 — idea catalog,
   deliberately wide)** — themed worldgen presets alongside size: a preset =
