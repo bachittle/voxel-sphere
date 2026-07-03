@@ -114,7 +114,13 @@ function frame(t){
     todVal.textContent=String(hh|0).padStart(2,'0')+':'+
       String((hh%1*60)|0).padStart(2,'0');}
   if(S.mode==='fp'){if(!S.paused)stepPlayer(dt/1000);}
-  else if(spinEl.checked&&!S.drag&&!S.paused)S.yaw+=0.0011*dt*0.06;
+  else if(!S.drag&&!S.paused){
+    if(spinEl.checked)S.yaw+=0.0011*dt*0.06;
+    // E.6: auto-orbit off = planet-fixed camera. Camera yaw and planet theta
+    // are both Y-rotations, so yaw+theta const ⇔ terrain frozen; the sun and
+    // stars sweep instead — you're standing still over a spinning planet.
+    else S.yaw-=S.omega*dt/1000;
+  }
   INTERACT.updateTarget(S.mode==='fp'&&!S.paused); // B.2: aimed-cell outline
   rebuildDirty();
   autosave(t);

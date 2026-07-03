@@ -79,6 +79,15 @@
   #menuCard .btn.big{display:block;text-align:center;padding:9px;font-size:14px;
     margin:0 0 8px;background:#2a3352;}
   #menuCard .sec{margin-top:14px;}
+  #mControls summary{cursor:pointer;list-style:none;}
+  #mControls summary::before{content:'▸ ';color:#7f849c;}
+  #mControls[open] summary::before{content:'▾ ';}
+  .kgrid{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;
+    font-size:12px;margin:8px 0 2px;}
+  .kgrid b{color:#f9e2af;font-weight:normal;white-space:nowrap;}
+  .kgrid span{color:#bac2de;}
+  .kgrid.khead{display:block;color:#7f849c;font-size:11px;
+    text-transform:uppercase;letter-spacing:.8px;margin-top:10px;}
   #menuCard .btn.big:hover{background:#45507a;}
   select{background:#1e2030;border:1px solid #2a2d3f;color:#cdd6f4;
     border-radius:6px;padding:3px 6px;font:inherit;}
@@ -149,6 +158,29 @@
         <option value="desktop">desktop</option>
         <option value="touch">touch</option>
       </select></label>
+    <details id="mControls">
+      <summary class="sec">Controls</summary>
+      <div class="kgrid">
+        <b>WASD / arrows</b><span>walk</span>
+        <b>mouse</b><span>look — click captures, ESC releases</span>
+        <b>left click</b><span>break block</span>
+        <b>right click</b><span>place block</span>
+        <b>1–9 · scroll · click</b><span>hotbar select</span>
+        <b>space</b><span>jump · swim up · fly up</span>
+        <b>shift / C</b><span>dive · fly down</span>
+        <b>F</b><span>toggle fly</span>
+        <b>ESC</b><span>pause menu</span>
+        <b>`</b><span>debug panel (time, spin, cutaway, seed)</span>
+        <b>🛰 / 🚶</b><span>orbit view ↔ walk the surface</span>
+      </div>
+      <div class="kgrid khead">touch</div>
+      <div class="kgrid">
+        <b>drag</b><span>look</span>
+        <b>joystick</b><span>walk</span>
+        <b>tap / long-press</b><span>break / place</span>
+        <b>⭡ ⭣ ✈</b><span>jump · down · fly toggle</span>
+      </div>
+    </details>
     <div class="sec">World</div>
     <div>
       <span class="btn" id="mExport">⬇ export</span>

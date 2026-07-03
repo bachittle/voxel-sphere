@@ -276,18 +276,18 @@ surface distortion accepted for now.
   face-center-vs-corner stretch stays. Revisit only via larger world sizes
   (E.2 experiments): bigger N doesn't remove the ratio but spreads it over
   more blocks so local neighborhoods look uniform. No work planned.
-- **E.6 ⬜ Auto-orbit off still "orbits" (2026-07-03 report)** — diagnosed:
-  the checkbox stops camera yaw, but **planet spin** (day/night, default 35)
-  keeps rotating the planet under the fixed camera — visually identical.
-  Fix: when auto-orbit is off, co-rotate the camera with the planet
-  (planet-fixed view: terrain freezes, sun/stars sweep). Workaround today:
-  set planet spin to 0 in the backtick panel. *Verifier:* uncheck auto-orbit
-  → the terrain visually freezes while the terminator still moves.
-- **E.5 ⬜ Controls reference in the pause menu** — a Controls section/tab
-  listing every binding (WASD, space, shift/C, F fly, 1–9/scroll hotbar,
-  click/right-click, ESC, backtick, touch equivalents). **Standing rule: any
-  future control lands with its line added here.** *Verifier:* a new player
-  can learn the game from the menu alone.
+- **E.6 ✅ Auto-orbit off still "orbits" (fixed 2026-07-03)** — diagnosed:
+  the checkbox stopped camera yaw, but **planet spin** kept rotating the
+  planet under the fixed camera — visually identical. Fix shipped: auto-orbit
+  off = **planet-fixed camera** (yaw −= ω·dt; yaw and theta are both
+  Y-rotations, so constant sum ⇔ frozen terrain); sun/stars sweep instead.
+  *Verifier (Bailey, 10s):* uncheck auto-orbit with spin up → terrain
+  freezes while the terminator still moves.
+- **E.5 ✅ Controls reference in the pause menu (2026-07-03)** — collapsible
+  Controls section (native <details>) in the ESC menu listing every binding,
+  desktop + touch, 15 rows. **Standing rule: any future control lands with
+  its line added here.** *Verifier:* a new player can learn the game from
+  the menu alone.
 
 ## Shelf — explicitly later ⬜
 
