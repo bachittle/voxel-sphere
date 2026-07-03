@@ -57,10 +57,11 @@ const aPos=gl.getAttribLocation(mainP,'aPos'),aUV=gl.getAttribLocation(mainP,'aU
 export const starP=prog(`
   attribute vec3 aPos;attribute float aS;uniform mat4 uMVP;varying float vS;
   void main(){gl_Position=uMVP*vec4(aPos,1.);gl_PointSize=aS;vS=aS;}`,`
-  precision mediump float;varying float vS;uniform float uFade;
+  precision mediump float;varying float vS;uniform float uFade;uniform vec3 uTint;
   void main(){vec2 d=gl_PointCoord-vec2(0.5);float r=dot(d,d);
-    if(r>0.25)discard;gl_FragColor=vec4(0.85,0.88,1.0,(1.0-r*2.6)*uFade);}`);
+    if(r>0.25)discard;gl_FragColor=vec4(uTint,(1.0-r*2.6)*uFade);}`);
 export const sU=gl.getUniformLocation(starP,'uMVP'),sFade=gl.getUniformLocation(starP,'uFade');
+export const sTint=gl.getUniformLocation(starP,'uTint');
 export const sPosA=gl.getAttribLocation(starP,'aPos'),sSA=gl.getAttribLocation(starP,'aS');
 
 // atmosphere rim glow: an icosphere shell, additive fresnel tinted by sun side
@@ -102,6 +103,18 @@ export const atmoMesh=(()=>{ // unit icosphere, 2 subdivisions (320 tris)
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,I,gl.STATIC_DRAW);
   return{vbo,ibo,count:I.length};})();
 export const ATM_R=1.42;
+
+// D.2 sun disc: two point sprites (wide glow + tight core) on the star sphere,
+// positioned by main.js at the true sun direction — light and disc agree.
+export const sunMesh=(()=>{
+  const vbo=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(8),gl.DYNAMIC_DRAW);
+  return{vbo,set(dir){ // world-frame unit sun direction
+    const R=49,V=new Float32Array([dir[0]*R,dir[1]*R,dir[2]*R,120,
+                                   dir[0]*R,dir[1]*R,dir[2]*R,42]);
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER,V,gl.DYNAMIC_DRAW);}};})();
 
 export const starMesh=(()=>{
   const R=50,COUNT=750,rnd=(s=>()=>{s|=0;s=s+0x6D2B79F5|0;

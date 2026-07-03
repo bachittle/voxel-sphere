@@ -229,7 +229,12 @@ against it, not against drag-look. B.5 last, as written.
 - **D.1 ⬜ Vegetation pass** — MC-style cross-quad sprites (tall grass,
   flowers, cave mushrooms), biome-tinted, scattered as a worldgen decoration
   layer; no collision, break instantly, die with their supporting block.
-- **D.2 ⬜ Sun disc** — visible sun where the light actually comes from.
+- **D.2 ✅ Sun disc (2026-07-03)** — visible sun where the light actually
+  comes from: two point sprites (wide warm glow + bright core) drawn in the
+  star pass at `SUNW`×49 on the star sphere, so terrain paints over it and it
+  sets behind the horizon for free; star shader gained a tint uniform.
+  *Verified:* aimed the FP camera exactly along sunM — disc centered on the
+  crosshair (screenshot).
 - **D.3 ⬜ Clouds** — raymarched shell if 0.2 passed, blocky drifting cloud
   shell otherwise. Visible from ground *and* orbit.
 - **D.4 ⬜ The moon** — real orbit, lit by the same sun (true phases, the

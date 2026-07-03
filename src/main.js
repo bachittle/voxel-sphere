@@ -7,8 +7,8 @@ import{world,generate}from'./world.js';
 import*as CH from'./chunks.js';
 import*as INTERACT from'./interact.js';
 import{player,stepPlayer}from'./player.js';
-import{canvas,gl,mainP,U,starP,sU,sFade,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
-       starMesh,ATM_R,upload,freeMesh,drawMesh,drawLines,resize}from'./gl.js';
+import{canvas,gl,mainP,U,starP,sU,sFade,sTint,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
+       starMesh,sunMesh,ATM_R,upload,freeMesh,drawMesh,drawLines,resize}from'./gl.js';
 import{perspective,mul,rotX,rotY,translate,rotYv,rotXv,vdot,sstep,lookAtM}from'./math.js';
 import{SET}from'./settings.js';
 import{initHotbar}from'./hotbar.js';
@@ -151,13 +151,22 @@ function frame(t){
   gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   // stars
   gl.useProgram(starP);gl.uniformMatrix4fv(sU,false,mvpS);
-  gl.uniform1f(sFade,starFade);
+  gl.uniform1f(sFade,starFade);gl.uniform3f(sTint,0.85,0.88,1.0);
   gl.depthMask(false);
   gl.bindBuffer(gl.ARRAY_BUFFER,starMesh.vbo);
   gl.enableVertexAttribArray(sPosA);gl.vertexAttribPointer(sPosA,3,gl.FLOAT,false,16,0);
   gl.enableVertexAttribArray(sSA);gl.vertexAttribPointer(sSA,1,gl.FLOAT,false,16,12);
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.drawArrays(gl.POINTS,0,starMesh.count);
+  // D.2 sun disc: same pass/frame as the stars, at the true light direction —
+  // terrain drawn later paints over it, so it sets behind the horizon for free
+  gl.bindBuffer(gl.ARRAY_BUFFER,sunMesh.vbo);
+  gl.enableVertexAttribArray(sPosA);gl.vertexAttribPointer(sPosA,3,gl.FLOAT,false,16,0);
+  gl.enableVertexAttribArray(sSA);gl.vertexAttribPointer(sSA,1,gl.FLOAT,false,16,12);
+  gl.uniform3f(sTint,1.0,0.85,0.60);gl.uniform1f(sFade,0.30);
+  gl.drawArrays(gl.POINTS,0,1);              // wide warm glow
+  gl.uniform3f(sTint,1.0,0.97,0.88);gl.uniform1f(sFade,1.0);
+  gl.drawArrays(gl.POINTS,1,1);              // tight bright core
   gl.disable(gl.BLEND);gl.depthMask(true);
   // opaque
   gl.useProgram(mainP);
@@ -230,6 +239,7 @@ window.VS={S,world,player,chunks:CH,interact:INTERACT,persist:PERSIST,
   if(params.has('seed'))seedEl.value=params.get('seed');
   atlasTex=await buildAtlas(gl);
   initHotbar();
+  sunMesh.set(SUNW);                     // sun is fixed in world space
   resize();
   window.addEventListener('resize',resize);
   const frag=PERSIST.fragmentSave();     // B.5: a share link loads its world
