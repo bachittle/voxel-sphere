@@ -15,9 +15,9 @@ export const world={seed:0,P:null,edits:new Map(),editsByCol:new Map(),openMask:
   rev:0,                               // bumped per edit; autosave watches it (B.5)
   torches:new Set()};                  // packed torch cells; C.1 point lights
 
-export function generate(seed){
+export function generate(seed,n=N){
   world.seed=seed;
-  world.P=WG.init(seed,N);
+  world.P=WG.init(seed,n);
   world.edits.clear();world.editsByCol.clear();world.openMask.clear();
   world.torches.clear();
   return world.P;

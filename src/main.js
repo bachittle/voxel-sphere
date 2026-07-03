@@ -10,10 +10,10 @@ import{player,stepPlayer}from'./player.js';
 import{canvas,gl,mainP,U,starP,sU,sFade,sTint,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
        starMesh,sunMesh,ATM_R,upload,freeMesh,drawMesh,drawLines,resize}from'./gl.js';
 import{perspective,mul,rotX,rotY,translate,rotYv,rotXv,vdot,sstep,lookAtM}from'./math.js';
-import{SET}from'./settings.js';
+import{SET,saveSettings}from'./settings.js';
 import{initHotbar}from'./hotbar.js';
 import*as PERSIST from'./persistence.js';
-import'./menu.js';
+import{reflectWorld}from'./menu.js';
 import'./input.js';
 
 // ===== planet build / GL mesh state =====
@@ -30,9 +30,10 @@ function updateQv(){let q=0;for(const c of chunkMs)q+=c.op.quads+c.wa.quads;
 
 function regenerate(seed,importEdits){
   loadEl.classList.remove('off');
+  seedEl.value=seed;reflectWorld(seed,SET.worldN);   // keep both UIs in sync
   setTimeout(()=>{
-    const P=generate(seed);
-    // B.5: imported edits win (and become this seed's save); else local save
+    const P=generate(seed,SET.worldN);
+    // B.5: imported edits win (and become this world's save); else local save
     if(importEdits){PERSIST.applyDeltas(importEdits);PERSIST.saveDeltas();}
     else PERSIST.loadDeltas(seed);
     CH.initChunks(P);CH.dirty.clear();
@@ -229,11 +230,16 @@ let lastRev=0,saveAt=0;
 function autosave(t){
   if(world.rev!==lastRev){lastRev=world.rev;saveAt=t+1200;}
   if(saveAt&&t>=saveAt){saveAt=0;PERSIST.saveDeltas();}}
-// import/reset requests from the pause menu (menu.js can't reach regenerate)
+// import/reset/reshape requests from the pause menu (it can't reach regenerate)
 window.addEventListener('vs-import',e=>{
-  const d=e.detail;seedEl.value=d.seed;regenerate(d.seed,d.edits);});
+  const d=e.detail;
+  if(d.N)SET.worldN=d.N;saveSettings();
+  regenerate(d.seed,d.edits);});
 window.addEventListener('vs-reset',()=>{
   PERSIST.clearSave(world.seed);regenerate(world.seed);});
+window.addEventListener('vs-world',e=>{         // E.2: seed/size change
+  SET.worldN=e.detail.N;saveSettings();
+  regenerate(e.detail.seed);});
 
 // debug/test handle (browser-automation smoke tests hook in here)
 window.VS={S,world,player,chunks:CH,interact:INTERACT,persist:PERSIST,
@@ -249,7 +255,7 @@ window.VS={S,world,player,chunks:CH,interact:INTERACT,persist:PERSIST,
   resize();
   window.addEventListener('resize',resize);
   const frag=PERSIST.fragmentSave();     // B.5: a share link loads its world
-  if(frag){seedEl.value=frag.seed;regenerate(frag.seed,frag.edits);}
+  if(frag){SET.worldN=frag.N;regenerate(frag.seed,frag.edits);}
   else regenerate(+seedEl.value);
   requestAnimationFrame(frame);
 })();

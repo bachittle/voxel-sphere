@@ -34,11 +34,13 @@ const sens=document.getElementById('mSens'),sensV=document.getElementById('mSens
 const inv=document.getElementById('mInv');
 const fov=document.getElementById('mFov'),fovV=document.getElementById('mFovV');
 const inp=document.getElementById('mInput');
+const seedI=document.getElementById('mSeed'),sizeI=document.getElementById('mSize');
 function reflect(){
   sens.value=Math.round(SET.sens*100);sensV.textContent=SET.sens.toFixed(2)+'×';
   inv.checked=SET.invertY;
   fov.value=SET.fov;fovV.textContent=SET.fov+'°';
-  inp.value=SET.input;}
+  inp.value=SET.input;
+  sizeI.value=String(SET.worldN);}
 sens.addEventListener('input',()=>{SET.sens=sens.value/100;
   sensV.textContent=SET.sens.toFixed(2)+'×';saveSettings();});
 inv.addEventListener('change',()=>{SET.invertY=inv.checked;saveSettings();});
@@ -62,6 +64,14 @@ document.getElementById('mShare').addEventListener('click',()=>{
     .catch(()=>status('clipboard blocked — use export'));});
 document.getElementById('mReset').addEventListener('click',()=>{
   window.dispatchEvent(new CustomEvent('vs-reset'));status('world reset');});
+// world shaping (E.2): seed + size regenerate; each (seed,N) keeps its own save
+const reshape=()=>window.dispatchEvent(new CustomEvent('vs-world',
+  {detail:{seed:+seedI.value,N:+sizeI.value}}));
+seedI.addEventListener('change',reshape);
+sizeI.addEventListener('change',reshape);
+document.getElementById('mDice').addEventListener('click',()=>{
+  seedI.value=(Math.random()*1e6)|0;reshape();});
+export function reflectWorld(seed,N){seedI.value=seed;sizeI.value=String(N);}
 const fileEl=document.getElementById('mFile');
 document.getElementById('mImport').addEventListener('click',()=>fileEl.click());
 fileEl.addEventListener('change',async()=>{

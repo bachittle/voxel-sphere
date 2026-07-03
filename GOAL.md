@@ -263,13 +263,17 @@ surface distortion accepted for now.
   (>10%). *Verified:* orbit screenshot — stepped plateaus, flat coasts,
   jagged snowcaps. Node checks green on 3 seeds. Note: pre-E.1 saves keep
   their absolute cells but the terrain shifted under them.
-- **E.2 ⬜ World settings in the pause menu** — a World-shaping section:
-  **seed** (field + 🎲, mirrored from the backtick debug panel) and **world
-  size** (N = 64 / 128 / 256 selector), both regenerating. Terrain-flatness
-  slider joins when E.1 lands. **Save format v2:** edit keys encode column
-  indices, which depend on N — a save must record `(seed, N)` and only load
-  into a matching world. *Verifier:* switch sizes, build, switch back, the
-  save survives.
+- **E.2 ✅ World settings in the pause menu (2026-07-03)** — World section
+  gained **seed** (field + 🎲) and **world size** (N = 64/128/256), both
+  regenerating; chosen size persists in `vs-settings`. **Save format v2**
+  records `(seed, N)` and only loads into a matching world (v1 saves read as
+  N=128); localStorage keys are `vs-save-<seed>:<N>` (128 keeps the legacy
+  key). Terrain-flatness slider deferred — terracing constants (band=4,
+  ramp=0.18) are baked in worldgen for now; expose them here if Bailey wants
+  to tune. *Verified:* browser-automation — 128→64 fresh world, build, back
+  to 128 (original 41-edit build intact), back to 64 (edit intact), settings
+  persisted. *Verifier for Bailey:* try a large (256) world — regen takes a
+  few seconds.
 - **E.3 ⬜ Depth shell merges — make deep blocks cube-ish** — the game never
   implemented the onion's merges: columns run continuously to the core, so
   block *width* shrinks with radius while *height* (dr) stays constant —

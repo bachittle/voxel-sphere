@@ -1,7 +1,7 @@
 // settings.js — user preferences persisted to localStorage under 'vs-settings'
 // (B.4). Deliberately separate from world saves (B.5): these are knobs, not
 // world state. localStorage-first is the project's persistence principle.
-export const SET={sens:1,invertY:false,fov:66,input:'auto'};
+export const SET={sens:1,invertY:false,fov:66,input:'auto',worldN:128};
 const KEY='vs-settings';
 try{Object.assign(SET,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
 export function saveSettings(){
