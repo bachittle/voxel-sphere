@@ -8,7 +8,7 @@ import*as CH from'./chunks.js';
 import*as INTERACT from'./interact.js';
 import{player,stepPlayer}from'./player.js';
 import{canvas,gl,mainP,U,starP,sU,sFade,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
-       starMesh,ATM_R,upload,freeMesh,drawMesh,resize}from'./gl.js';
+       starMesh,ATM_R,upload,freeMesh,drawMesh,drawLines,resize}from'./gl.js';
 import{perspective,mul,rotX,rotY,translate,rotYv,rotXv,vdot,sstep,lookAtM}from'./math.js';
 import{SET}from'./settings.js';
 import'./menu.js';
@@ -110,6 +110,7 @@ function frame(t){
       String((hh%1*60)|0).padStart(2,'0');}
   if(S.mode==='fp'){if(!S.paused)stepPlayer(dt/1000);}
   else if(spinEl.checked&&!S.drag&&!S.paused)S.yaw+=0.0011*dt*0.06;
+  INTERACT.updateTarget(S.mode==='fp'&&!S.paused); // B.2: aimed-cell outline
   rebuildDirty();
   if(cutDirty){cutDirty=false;rebuildCut();}
   const a=cutEl.value/100,clip=2-2*a;
@@ -170,6 +171,9 @@ function frame(t){
   for(const c of chunkMs)drawMesh(c.wa,clip,0,0.72,0);
   drawMesh(mCutWa,10,0,0.72,0);
   gl.depthMask(true);gl.disable(gl.BLEND);
+  // block-target outline (B.2)
+  if(S.mode==='fp'&&INTERACT.target.verts)
+    drawLines(INTERACT.target.verts,mvpT,[0.02,0.02,0.05,1]);
   // atmosphere rim glow (orbital only; additive)
   if(S.mode==='orbit'){
     gl.useProgram(atmoP);

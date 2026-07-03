@@ -117,9 +117,17 @@ against it, not against drag-look. B.5 last, as written.
   corner, chunk border, floating block, re-dig, pocket reveal, re-seal), zero
   coincident quads; browser smoke: dig staircase/shaft, fall in, place block,
   dig into a 1,372-cell cave pocket and walk its floor.
-- **B.2 ⬜ Raycast block targeting** — crosshair picks the aimed block +
-  face; highlight outline. *Verifier:* the outlined cell is always the one
-  that breaks.
+- **B.2 ✅ Raycast block targeting (2026-07-03)** — crosshair picks the aimed
+  block + face; highlight outline. Shipped: `interact.js` rebuilt around a
+  per-frame `target` cache (dr/16 sampling, 5-block reach; face from the
+  entering air cell: 'out'/'in'/lateral 0–3) that dig()/place() consume, so
+  the outline and the break can't disagree by construction; 12-edge inflated
+  line outline via a new `drawLines` in gl.js. (True DDA on the curved grid
+  judged not worth it — 80 cheap lookups/frame.) *Verified:* browser-automation
+  — dug cell === aimed cell, retarget after dig, sky clears target, reach
+  limit; outline visible in screenshot. Caveat learned: rAF pauses in hidden
+  tabs, so automation must keep the tab foregrounded (or drive updateTarget
+  directly).
 - **B.3 ⬜ Break & place (creative)** — break = vanish, place = from hotbar,
   unlimited. 9-slot hotbar (keys 1–9 / scroll): dirt, stone, sand, log,
   leaves, glass*, torch* (*new block types). **Water & lava hotbar slots are

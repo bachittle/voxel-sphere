@@ -108,6 +108,24 @@ export const starMesh=(()=>{
   gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,V,gl.STATIC_DRAW);
   return{vbo,count:COUNT};})();
 
+// ---- line overlay (B.2 block-target outline) ----
+const lineP=prog(`
+  attribute vec3 aPos;uniform mat4 uMVP;
+  void main(){gl_Position=uMVP*vec4(aPos,1.);}`,`
+  precision mediump float;uniform vec4 uCol;
+  void main(){gl_FragColor=uCol;}`);
+const lU={uMVP:gl.getUniformLocation(lineP,'uMVP'),uCol:gl.getUniformLocation(lineP,'uCol')};
+const lPosA=gl.getAttribLocation(lineP,'aPos');
+const lineVbo=gl.createBuffer();
+export function drawLines(verts,mvp,col){
+  gl.useProgram(lineP);
+  gl.uniformMatrix4fv(lU.uMVP,false,mvp);
+  gl.uniform4f(lU.uCol,col[0],col[1],col[2],col[3]);
+  gl.bindBuffer(gl.ARRAY_BUFFER,lineVbo);
+  gl.bufferData(gl.ARRAY_BUFFER,verts,gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(lPosA);gl.vertexAttribPointer(lPosA,3,gl.FLOAT,false,12,0);
+  gl.drawArrays(gl.LINES,0,verts.length/3);}
+
 // ---- mesh upload / draw ----
 export function upload(mb){
   const vbo=gl.createBuffer(),ibo=gl.createBuffer();
