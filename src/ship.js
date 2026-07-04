@@ -23,7 +23,7 @@ import{SET}from'./settings.js';
 import{vnorm,vcross,vdot}from'./math.js';
 import*as SYS from'./system.js';
 
-export const ship={placed:false,piloting:false,rev:0,
+export const ship={placed:false,piloting:false,rev:0,lcam:false,
   pos:[0,0,1.2],fwd:[0,0,1],up:[0,1,0],vel:[0,0,0]};
 
 // ---- hull model: [fwd,starboard,up,tile] in block units ----
@@ -122,7 +122,7 @@ export function interact(){ // E key (desktop) / the ✈ button near a ship (tou
   return false;
 }
 function enterShip(){
-  ship.piloting=true;ship.vel=[0,0,0];
+  ship.piloting=true;ship.vel=[0,0,0];ship.lcam=false;
   // adopt the player's current view as the flight frame — no camera snap
   const up=player.dir,h=player.head,
         cp=Math.cos(player.pitch),sp=Math.sin(player.pitch);
@@ -135,7 +135,7 @@ function enterShip(){
 }
 export function exitShip(){
   if(!ship.piloting)return;
-  ship.piloting=false;
+  ship.piloting=false;ship.lcam=false;
   settle(vnorm(ship.pos));          // the ship settles; you step out beside it
   ship.placed=true;
   const P=world.P,sb=vnorm(vcross(ship.fwd,ship.up));
@@ -171,7 +171,9 @@ export function syncFromWorld(){
 // contact kills inward velocity and strut friction bleeds the rest. The
 // previous arcade model (40→400 blocks/s throttle, auto-roll, gravity
 // detached) lasted one session.
-export const FLY={ACC:75,G:30,MAXV:500,ROLL:1.6}; // blocks/s², blocks/s², blocks/s, rad/s
+// tuned down 2026-07-04 after Bailey's first flight (75/500/1.6 was "too
+// fast, too powerful"): TWR 1.5 makes takeoffs deliberate and taps nudge
+export const FLY={ACC:45,G:30,MAXV:180,ROLL:1.2}; // blocks/s², blocks/s², blocks/s, rad/s
 export function stepShip(dt){
   dt=Math.min(dt,0.05);
   const P=world.P,dr=P.dr,KEY=move.KEY;

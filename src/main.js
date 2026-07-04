@@ -6,10 +6,10 @@ import{S,SUNW}from'./state.js';
 import{world,generate}from'./world.js';
 import*as CH from'./chunks.js';
 import*as INTERACT from'./interact.js';
-import{player,stepPlayer}from'./player.js';
+import{player,move,stepPlayer}from'./player.js';
 import{canvas,gl,mainP,U,starP,sU,sFade,sTint,sPosA,sSA,atmoP,aU,atmoPosA,atmoMesh,
        starMesh,sunMesh,ATM_R,upload,freeMesh,drawMesh,drawLines,resize}from'./gl.js';
-import{perspective,mul,rotX,rotY,translate,scaleM,rotYv,rotXv,vdot,sstep,lookAtM}from'./math.js';
+import{perspective,mul,rotX,rotY,translate,scaleM,rotYv,rotXv,vdot,vcross,sstep,lookAtM}from'./math.js';
 import{SET,saveSettings}from'./settings.js';
 import{initHotbar}from'./hotbar.js';
 import*as PERSIST from'./persistence.js';
@@ -29,7 +29,9 @@ let mLodOp=null,mLodWa=null;            // orbit far-LOD (E.8), built lazily
 let atlasTex=null,cutQuads=0,cutDirty=false;
 const loadEl=document.getElementById('load');
 const qvEl=document.getElementById('qv');
-const velEl=document.getElementById('vel'); // F.1 pilot HUD: speed + vertical rate
+// F.1 pilot HUD: reference body, velocity readout, 6-axis thruster lights
+const vBodyEl=document.getElementById('vbody'),vReadEl=document.getElementById('vread');
+const thrEls=[...document.getElementById('vthr').children];
 
 function freeChunks(){for(const c of chunkMs){freeMesh(c.op);freeMesh(c.wa);}chunkMs=[];}
 function updateQv(){let q=0;for(const c of chunkMs)q+=c.op.quads+c.wa.quads;
@@ -170,15 +172,32 @@ function frame(t){
   }
   INTERACT.updateTarget(S.mode==='fp'&&!S.paused&&!SHIP.ship.piloting); // B.2 outline
   rebuildDirty();
-  // F.1 pilot HUD: Newtonian flight needs instruments — planet-frame speed
-  // and vertical rate (the Outer Wilds velocity readout, minus the lock-on)
+  // F.1 pilot HUD (Outer Wilds instruments): which body you're over +
+  // altitude, planet-frame speed + vertical rate, and the 6-axis thruster
+  // lights that show exactly which way you're pushing
   if(SHIP.ship.piloting){
     const s=SHIP.ship,idr=1/world.P.dr;
     const srl=Math.hypot(s.pos[0],s.pos[1],s.pos[2]);
     const vr=(s.vel[0]*s.pos[0]+s.vel[1]*s.pos[1]+s.vel[2]*s.pos[2])/srl;
     const sp=Math.hypot(s.vel[0],s.vel[1],s.vel[2]);
-    velEl.textContent=(sp*idr).toFixed(0)+' bl/s · '+
-      (vr<0?'↓':'↑')+Math.abs(vr*idr).toFixed(0);}
+    const{C,k}=SYS.otherLayout();
+    const dO=Math.hypot(s.pos[0]-C[0],s.pos[1]-C[1],s.pos[2]-C[2]);
+    const nearA=srl<dO/k;              // nearer body, measured in own radii
+    const names=world.type==='desert'?['the moon','the home planet']
+                                     :['the home planet','the moon'];
+    vBodyEl.textContent=(nearA?srl<2.5:dO<2.5*k)
+      ?'over '+(nearA?names[0]:names[1])+' · alt '+
+        Math.max(0,Math.round((nearA?srl-1:dO-k)*idr))
+      :'deep space';
+    vReadEl.textContent=(sp*idr).toFixed(0)+' bl/s · '+
+      (vr<0?'↓':'↑')+Math.abs(vr*idr).toFixed(0)+(s.lcam?' · ⬇CAM':'');
+    const KEY=move.KEY;
+    const tf=(KEY.KeyW||KEY.ArrowUp?1:0)-(KEY.KeyS||KEY.ArrowDown?1:0)+Math.sign(move.joyY),
+          ts=(KEY.KeyD||KEY.ArrowRight?1:0)-(KEY.KeyA||KEY.ArrowLeft?1:0)+Math.sign(move.joyX),
+          tu=(KEY.Space||move.jumpHeld?1:0)-
+             (KEY.ShiftLeft||KEY.ShiftRight||KEY.KeyC||move.downHeld?1:0);
+    const on=[tf>0,tf<0,ts<0,ts>0,tu>0,tu<0,!!KEY.KeyB];
+    for(let i=0;i<7;i++)thrEls[i].classList.toggle('on',on[i]);}
   // F.1 parked-ship mesh: rebuilt on state change only; hidden while piloting
   // (you're in the cockpit — the hull would fill the camera)
   if(SHIP.ship.rev!==shipRev){shipRev=SHIP.ship.rev;
@@ -200,7 +219,21 @@ function frame(t){
     gl.clearColor(0.027,0.031,0.051,1);
   }else{
     let eye,fwd,up;
-    if(SHIP.ship.piloting){ // F.1 cockpit camera: the ship's free frame
+    if(SHIP.ship.piloting&&SHIP.ship.lcam){ // V: landing camera — belly view
+      // straight down, screen-up = ship-forward, so drift reads on screen
+      const s=SHIP.ship,dr=world.P.dr;
+      const rl2=Math.hypot(s.pos[0],s.pos[1],s.pos[2]);
+      const rd2=[s.pos[0]/rl2,s.pos[1]/rl2,s.pos[2]/rl2];
+      fwd=fpFwd=[-rd2[0],-rd2[1],-rd2[2]];
+      const fu=vdot(s.fwd,rd2);
+      let u2=[s.fwd[0]-fu*rd2[0],s.fwd[1]-fu*rd2[1],s.fwd[2]-fu*rd2[2]];
+      if(Math.hypot(u2[0],u2[1],u2[2])<0.1){ // nose straight up/down: use wing
+        const sb=vcross(s.fwd,s.up),su=vdot(sb,rd2);
+        u2=[sb[0]-su*rd2[0],sb[1]-su*rd2[1],sb[2]-su*rd2[2]];}
+      const ul=Math.hypot(u2[0],u2[1],u2[2]);
+      up=[u2[0]/ul,u2[1]/ul,u2[2]/ul];
+      eye=[s.pos[0]-rd2[0]*0.5*dr,s.pos[1]-rd2[1]*0.5*dr,s.pos[2]-rd2[2]*0.5*dr];
+    }else if(SHIP.ship.piloting){ // F.1 cockpit camera: the ship's free frame
       const s=SHIP.ship;up=s.up;fwd=fpFwd=s.fwd;
       const dr=world.P.dr;
       eye=[s.pos[0]+up[0]*dr,s.pos[1]+up[1]*dr,s.pos[2]+up[2]*dr];

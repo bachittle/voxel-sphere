@@ -407,13 +407,19 @@ surface distortion accepted for now.
   the Controls menu per E.5). The ship keeps its own free orthonormal frame
   (mouse = yaw about ship-up, pitch about starboard — Rodrigues, no gimbal;
   **Z/X roll**). **Flight went NEWTONIAN the same evening (Bailey: "like
-  Outer Wilds")**: thrust is pure acceleration (75 blocks/s², WASD +
-  space/shift), velocity persists — no drag, no altitude throttle, 500
-  blocks/s sanity cap — and **both bodies pull inverse-square**, each with
-  the player's 30 blocks/s² at its own surface, so the ship falls, orbits,
-  slingshots, and lands by flip-and-burn. **B matches velocity** to the
-  active planet (retro-burn assist, OW-style); a HUD readout (speed +
-  vertical rate) shows while piloting. Ground contact kills inward velocity
+  Outer Wilds")**: thrust is pure acceleration (WASD + space/shift),
+  velocity persists — no drag, no altitude throttle — and **both bodies
+  pull inverse-square**, each with the player's 30 blocks/s² at its own
+  surface, so the ship falls, orbits, slingshots, and lands by
+  flip-and-burn. **Tuned after Bailey's first flight (same night: "too
+  fast, too powerful")**: 75→**45 blocks/s²** thrust (TWR 1.5), 500→**180
+  blocks/s** cap, roll 1.6→1.2 rad/s. **B matches velocity** to the active
+  planet (retro-burn assist, OW-style). **OW instrument cluster** (same
+  feedback): reference-body line ("over the moon · alt 8" / "deep space" —
+  dominant body by radii), speed + vertical-rate readout, **6-axis thruster
+  lights** (▲▼◀▶⤒⤓ + ⏹ brake) that show exactly which way you're pushing,
+  and **V** toggles a belly **landing camera** (straight down, screen-up =
+  ship-forward so drift reads on screen). Ground contact kills inward velocity
   and strut friction bleeds the rest; the hull still rests on the sea
   *surface* (groundR is the ocean floor — a boat, not a submarine). No crash
   damage (accepted OW divergence); touch flies with joystick + ⭡⭣ only (no

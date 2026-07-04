@@ -147,10 +147,10 @@ console.log('— newtonian flight —');
   check(Math.abs(energy()-E0)<0.01*Math.abs(E0),
     `orbital energy conserved (dE/E=${((energy()-E0)/Math.abs(E0)).toExponential(1)})`);
 
-  // B match-velocity kills planet-frame speed
+  // B match-velocity kills planet-frame speed (2s: brake ≈ ACC, tuned low)
   clearKeys();move.KEY.KeyB=true;
   setShipState(away.map(v=>v*2.5),tang.map(v=>v*0.5),tang,away);
-  for(let t=0;t<1;t+=DT)stepShip(DT);
+  for(let t=0;t<2;t+=DT)stepShip(DT);
   check(speed()<0.05,`match velocity brakes to a stop (${(speed()/dr).toFixed(1)} bl/s left)`);
 
   // landed: ground contact + strut friction bleed tangential speed

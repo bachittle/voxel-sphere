@@ -24,7 +24,9 @@ boards it).
 
 Ship flight is Newtonian (Outer Wilds-style): thrust accelerates, velocity
 persists, both planets pull real gravity — orbit, slingshot, flip-and-burn.
-Z/X roll · B match velocity (retro-burn to a stop).
+Z/X roll · B match velocity (retro-burn to a stop) · V landing camera.
+The pilot HUD shows the body you're over, speed/vertical rate, and 6-axis
+thruster lights.
 
 ## Dev
 
