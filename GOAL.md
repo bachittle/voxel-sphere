@@ -419,7 +419,28 @@ surface distortion accepted for now.
   dominant body by radii), speed + vertical-rate readout, **6-axis thruster
   lights** (▲▼◀▶⤒⤓ + ⏹ brake) that show exactly which way you're pushing,
   and **V** toggles a belly **landing camera** (straight down, screen-up =
-  ship-forward so drift reads on screen). Ground contact kills inward velocity
+  ship-forward so drift reads on screen). **Lock-on + STAGED autopilot (same
+  night; Bailey: beginner mode, then "stages instead")**: **T** locks the
+  far body — the HUD line becomes range + closing rate (bodies are static
+  in the co-rotating frame, so lock = destination; B already IS
+  match-target-velocity). **G runs ONE mission stage per press**, each
+  ending in a stable state with a ✓ next-key hint: low & slow → **to
+  orbit** (gravity-turn: radial climb fades as tangential ramps,
+  circularize at ORBIT_R=1.6 radii); in orbit + lock → **transfer**
+  (tangent-steering around the planet if the target's under the horizon,
+  velocity-tracked burn/cruise/flip-brake to the SOI, ride the world
+  switch, then circularize into the NEW body's orbit — arrives in orbit,
+  not on dirt); in orbit, no lock → **land** (kill drift, descend 4–30
+  blocks/s by altitude, level, disengage at touchdown). Parking orbits are
+  deliberately imperfect — the other body's tide (~6% of surface g)
+  makes them eccentric (r wobbles ~1.5–2.2), which is honest two-center
+  physics; completion accepts a near-circular window or a settled loose
+  one. A velocity-tracking controller with gravity feedforward, capped to
+  the SAME 45 blocks/s² the keys get — no cheating. Any manual thrust key
+  cancels (OW rules). Thruster lights show autopilot burns (they read
+  actual demand, not keys). *Node-verified:* the full G·G·G ladder —
+  surface→orbit (3s), unpowered hold, orbit→SOI (3s), arrival
+  circularization in the moon frame, orbit→touchdown at 0.0 blocks/s. Ground contact kills inward velocity
   and strut friction bleeds the rest; the hull still rests on the sea
   *surface* (groundR is the ocean floor — a boat, not a submarine). No crash
   damage (accepted OW divergence); touch flies with joystick + ⭡⭣ only (no

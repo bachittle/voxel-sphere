@@ -24,7 +24,31 @@ import{vnorm,vcross,vdot}from'./math.js';
 import*as SYS from'./system.js';
 
 export const ship={placed:false,piloting:false,rev:0,lcam:false,
-  pos:[0,0,1.2],fwd:[0,0,1],up:[0,1,0],vel:[0,0,0]};
+  pos:[0,0,1.2],fwd:[0,0,1],up:[0,1,0],vel:[0,0,0],thr:[0,0,0]};
+
+// ---- lock-on + STAGED autopilot (OW-style, 2026-07-04) ----
+// T locks the far body (the only other planet; bodies are static in the
+// co-rotating frame, so lock = a destination + HUD range/closing readout).
+// G runs ONE stage per press (Bailey: learn spaceflight in stages), each
+// ending in a stable state with a ✓ hint for the next key:
+//   low & slow      → ORBIT: gravity-turn climb, circularize at ORBIT_R
+//   in orbit + lock → TRANSFER: burn/cruise/flip-brake to the SOI, ride the
+//                     world switch, then circularize into the NEW orbit
+//   in orbit, no lock → LAND: kill drift, descend, level, touch down
+// Any manual thrust key (WASD/space/shift/B) cancels it — OW rules.
+export const ORBIT_R=1.6;      // parking-orbit radius, in active-body radii
+export const AP={on:false,mode:'land',lock:false,txt:'',done:''};
+export function toggleLock(){if(!ship.piloting)return;
+  AP.lock=!AP.lock;
+  if(!AP.lock&&AP.on&&AP.mode==='transfer'){AP.on=false;AP.txt='';}}
+export function toggleAP(){if(!ship.piloting)return;
+  if(AP.on){AP.on=false;AP.txt='';return;}
+  const rl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
+  const rd=[ship.pos[0]/rl,ship.pos[1]/rl,ship.pos[2]/rl];
+  AP.mode=rl-restR(rd)<(ORBIT_R-1)*0.55?'orbit':AP.lock?'transfer':'land';
+  AP.on=true;AP.txt='';AP.done='';}
+export function apArrived(){ // main.js calls this from the travel handoff:
+  if(AP.on){AP.mode='orbit';AP.lock=false;}} // arrive INTO orbit, not dirt
 
 // ---- hull model: [fwd,starboard,up,tile] in block units ----
 const CELLS=[
@@ -123,6 +147,7 @@ export function interact(){ // E key (desktop) / the ✈ button near a ship (tou
 }
 function enterShip(){
   ship.piloting=true;ship.vel=[0,0,0];ship.lcam=false;
+  AP.on=false;AP.lock=false;AP.txt='';
   // adopt the player's current view as the flight frame — no camera snap
   const up=player.dir,h=player.head,
         cp=Math.cos(player.pitch),sp=Math.sin(player.pitch);
@@ -136,6 +161,7 @@ function enterShip(){
 export function exitShip(){
   if(!ship.piloting)return;
   ship.piloting=false;ship.lcam=false;
+  AP.on=false;AP.lock=false;AP.txt='';
   settle(vnorm(ship.pos));          // the ship settles; you step out beside it
   ship.placed=true;
   const P=world.P,sb=vnorm(vcross(ship.fwd,ship.up));
@@ -174,6 +200,109 @@ export function syncFromWorld(){
 // tuned down 2026-07-04 after Bailey's first flight (75/500/1.6 was "too
 // fast, too powerful"): TWR 1.5 makes takeoffs deliberate and taps nudge
 export const FLY={ACC:45,G:30,MAXV:180,ROLL:1.2}; // blocks/s², blocks/s², blocks/s, rad/s
+
+// rotate fwd (and up with it) toward dir, rate-limited — the autopilot's
+// nose steering; thrust itself is omnidirectional, this is for the cockpit
+function aimAt(dir,dt,rate){
+  const c=vdot(ship.fwd,dir),ax=vcross(ship.fwd,dir),al=Math.hypot(ax[0],ax[1],ax[2]);
+  if(al<1e-6)return;
+  const ang=Math.min(Math.atan2(al,c),rate*dt);
+  const u=[ax[0]/al,ax[1]/al,ax[2]/al];
+  ship.fwd=rotAx(ship.fwd,u,ang);ship.up=rotAx(ship.up,u,ang);orthonorm();}
+
+// autopilot step: returns thrust demand [tf,ts,tu] in [-1,1] per ship axis.
+// A velocity-tracking controller with gravity feedforward: aim the desired
+// velocity at the goal, thrust (vDes - vel)*gain - g, capped to the same
+// FLY.ACC budget the keys get. `g` is this step's gravity accel vector.
+function apStep(dt,g){
+  const P=world.P,dr=P.dr,TH=FLY.ACC*dr;
+  const rl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
+  const rd=[ship.pos[0]/rl,ship.pos[1]/rl,ship.pos[2]/rl];
+  let vDes,nose;
+  if(AP.mode==='transfer'){
+    const{C,k}=SYS.otherLayout();
+    const dx=[C[0]-ship.pos[0],C[1]-ship.pos[1],C[2]-ship.pos[2]];
+    const dC=Math.hypot(dx[0],dx[1],dx[2]),u=[dx[0]/dC,dx[1]/dC,dx[2]/dC];
+    // planet avoidance: if the straight line to the target clips the active
+    // body, steer along the tangent with an up bias (strong near the ground
+    // so the climb-out beats gravity)
+    let dirT=u,climb=false;
+    const t=-vdot(ship.pos,u);
+    if(t>0&&t<dC){
+      const cp=[ship.pos[0]+u[0]*t,ship.pos[1]+u[1]*t,ship.pos[2]+u[2]*t];
+      if(Math.hypot(cp[0],cp[1],cp[2])<1.25){
+        climb=true;
+        const ur=vdot(u,rd);
+        let tg=[u[0]-ur*rd[0],u[1]-ur*rd[1],u[2]-ur*rd[2]];
+        if(Math.hypot(tg[0],tg[1],tg[2])<0.05)tg=vcross(rd,[0,1,0]); // antipode
+        tg=vnorm(tg);
+        const alt=(rl-restR(rd))/dr,b=alt<20?1.5:0.35;
+        dirT=vnorm([tg[0]+rd[0]*b,tg[1]+rd[1]*b,tg[2]+rd[2]*b]);}}
+    // speed budget: full brake (60% margin) must stop it by the SOI line,
+    // arriving ~15 blocks/s; the world switch then flips this to landing
+    const dS=Math.max(dC-1.5*k,1e-4);
+    const vTgt=Math.min(Math.sqrt(2*0.6*TH*dS)+15*dr,FLY.MAXV*dr);
+    vDes=[dirT[0]*vTgt,dirT[1]*vTgt,dirT[2]*vTgt];
+    const closing=vdot(ship.vel,dirT);
+    AP.txt=climb?'climb':closing>vTgt*1.1?'brake':closing<vTgt*0.9?'burn':'cruise';
+    nose=closing>vTgt*1.1?vnorm([-ship.vel[0],-ship.vel[1],-ship.vel[2]]):dirT;
+  }else if(AP.mode==='orbit'){ // stage: reach a circular parking orbit.
+    // Gravity turn: climb radially while the tangential target ramps with
+    // altitude, then hold the ORBIT_R shell and trim to circular speed.
+    const G0=FLY.G*dr,vOrb=Math.sqrt(G0/ORBIT_R);
+    const vr=vdot(ship.vel,rd);
+    let tg=[ship.vel[0]-rd[0]*vr,ship.vel[1]-rd[1]*vr,ship.vel[2]-rd[2]*vr];
+    if(Math.hypot(tg[0],tg[1],tg[2])<5*dr){ // no drift yet: go where the nose points
+      const fr=vdot(ship.fwd,rd);
+      tg=[ship.fwd[0]-fr*rd[0],ship.fwd[1]-fr*rd[1],ship.fwd[2]-fr*rd[2]];}
+    if(Math.hypot(tg[0],tg[1],tg[2])<0.05)tg=vcross(rd,[0,1,0]);
+    tg=vnorm(tg);
+    if(rl<ORBIT_R-0.03){
+      AP.ct=0;
+      const f=Math.max(0,(rl-1)/(ORBIT_R-1));
+      vDes=[0,0,0];
+      for(let i=0;i<3;i++)vDes[i]=rd[i]*28*dr*(1-0.6*f)+tg[i]*vOrb*f;
+      AP.txt='climb · alt '+Math.max(0,((rl-restR(rd))/dr)|0);
+    }else{
+      vDes=[0,0,0];
+      for(let i=0;i<3;i++)vDes[i]=tg[i]*vOrb+rd[i]*(ORBIT_R-rl)*2;
+      AP.txt='circularize';
+      // "circular" is approximate here — the other body's tide (~6% of
+      // surface g) perturbs any orbit, so accept a near window, or a loose
+      // one once it has settled for a few seconds
+      AP.ct=(AP.ct||0)+dt;
+      const vt=vdot(ship.vel,tg);
+      if((Math.abs(rl-ORBIT_R)<0.06&&Math.abs(vr)<6*dr&&
+          Math.abs(vt-vOrb)<0.2*vOrb)||
+         (AP.ct>8&&Math.abs(rl-ORBIT_R)<0.12&&Math.abs(vr)<8*dr)){
+        AP.on=false;AP.txt='';
+        AP.done='✓ orbit — '+(AP.lock?'G: transfer':'T: lock target · G: land');}}
+    nose=vnorm(vDes);
+  }else{ // land on the active body, straight down, gentler as ground nears
+    const gR=restR(rd),alt=(rl-gR)/dr;
+    const vrT=-(4+Math.min(alt*0.3,26))*dr;
+    vDes=[rd[0]*vrT,rd[1]*vrT,rd[2]*vrT];
+    AP.txt='land · alt '+Math.max(0,alt|0);
+    nose=null; // level out instead: ease ship-up toward radial
+    const e=1-Math.exp(-2*dt);
+    ship.up=vnorm([ship.up[0]+(rd[0]-ship.up[0])*e,
+                   ship.up[1]+(rd[1]-ship.up[1])*e,
+                   ship.up[2]+(rd[2]-ship.up[2])*e]);
+    const fd=vdot(ship.fwd,ship.up);
+    const f=[ship.fwd[0]-fd*ship.up[0],ship.fwd[1]-fd*ship.up[1],
+             ship.fwd[2]-fd*ship.up[2]];
+    if(Math.hypot(f[0],f[1],f[2])>0.1)ship.fwd=vnorm(f);else orthonorm();
+    if(alt<0.8&&Math.hypot(ship.vel[0],ship.vel[1],ship.vel[2])<4*dr){
+      AP.on=false;AP.txt='';AP.done='✓ touchdown — E: step out';}}
+  if(nose)aimAt(nose,dt,1.5);
+  // demand = tracking + gravity feedforward, capped to the thruster budget
+  let a=[0,0,0];
+  for(let i=0;i<3;i++)a[i]=(vDes[i]-ship.vel[i])*3-g[i];
+  const al=Math.hypot(a[0],a[1],a[2]);
+  if(al>TH)for(let i=0;i<3;i++)a[i]*=TH/al;
+  const F=ship.fwd,U=ship.up,sb=vnorm(vcross(F,U));
+  const cl=v=>Math.max(-1,Math.min(1,v));
+  return[cl(vdot(a,F)/TH),cl(vdot(a,sb)/TH),cl(vdot(a,U)/TH)];}
 export function stepShip(dt){
   dt=Math.min(dt,0.05);
   const P=world.P,dr=P.dr,KEY=move.KEY;
@@ -185,19 +314,25 @@ export function stepShip(dt){
   const tl=Math.hypot(tf,ts,tu);if(tl>1){tf/=tl;ts/=tl;tu/=tl;}
   const roll=(KEY.KeyZ?1:0)-(KEY.KeyX?1:0);
   if(roll){ship.up=rotAx(ship.up,ship.fwd,roll*FLY.ROLL*dt);orthonorm();}
-  const F=ship.fwd,U=ship.up,sb=vnorm(vcross(F,U));
-  const TH=FLY.ACC*dr,G0=FLY.G*dr,a=[0,0,0];
-  for(let i=0;i<3;i++)a[i]=(F[i]*tf+sb[i]*ts+U[i]*tu)*TH;
+  const TH=FLY.ACC*dr,G0=FLY.G*dr,g=[0,0,0];
   // gravity: the active body (surface radius 1)...
   let rl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
   const g1=G0/(rl*rl*rl);           // /r³: folds in the direction normalize
-  for(let i=0;i<3;i++)a[i]-=ship.pos[i]*g1;
+  for(let i=0;i<3;i++)g[i]-=ship.pos[i]*g1;
   // ...and the far body (surface radius k in active-local units)
   const{C,k}=SYS.otherLayout();
   const dx=[C[0]-ship.pos[0],C[1]-ship.pos[1],C[2]-ship.pos[2]];
   const dO=Math.hypot(dx[0],dx[1],dx[2]);
   const g2=G0*k*k/(dO*dO*dO);
-  for(let i=0;i<3;i++)a[i]+=dx[i]*g2;
+  for(let i=0;i<3;i++)g[i]+=dx[i]*g2;
+  // autopilot: any manual thrust takes the stick back (OW rules); otherwise
+  // it drives the same thrusters the keys do
+  if(AP.on&&(tf||ts||tu||KEY.KeyB)){AP.on=false;AP.txt='';}
+  if(AP.on)[tf,ts,tu]=apStep(dt,g);
+  ship.thr=[tf,ts,tu];              // HUD thruster lights read actual demand
+  const F=ship.fwd,U=ship.up,sb=vnorm(vcross(F,U)); // after apStep's aiming
+  const a=[g[0],g[1],g[2]];
+  for(let i=0;i<3;i++)a[i]+=(F[i]*tf+sb[i]*ts+U[i]*tu)*TH;
   // B: match velocity — retro-burn against the planet-frame velocity,
   // clamped so it never overshoots zero
   if(KEY.KeyB){const sp=Math.hypot(ship.vel[0],ship.vel[1],ship.vel[2]);

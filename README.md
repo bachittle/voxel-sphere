@@ -24,9 +24,13 @@ boards it).
 
 Ship flight is Newtonian (Outer Wilds-style): thrust accelerates, velocity
 persists, both planets pull real gravity — orbit, slingshot, flip-and-burn.
-Z/X roll · B match velocity (retro-burn to a stop) · V landing camera.
-The pilot HUD shows the body you're over, speed/vertical rate, and 6-axis
-thruster lights.
+Z/X roll · B match velocity (retro-burn to a stop) · V landing camera ·
+T lock the other planet · G autopilot — one stage per press, like a real
+mission: surface → parking orbit, orbit → transfer to the locked planet
+(arrives into orbit), orbit → land. Each stage ends stable with a ✓ hint;
+touching the stick cancels. The pilot HUD shows the body you're over (or
+the lock/autopilot status), speed/vertical rate, and 6-axis thruster
+lights.
 
 ## Dev
 

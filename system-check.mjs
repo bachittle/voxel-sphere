@@ -6,7 +6,7 @@
 import*as WG from'./src/worldgen.js';
 import*as MESH from'./src/mesher.js';
 import{layout,moonSeedOf,MOON_N,MOON_DIR,SWITCH_R}from'./src/system.js';
-import{ship,buildShipMesh,stepShip,FLY}from'./src/ship.js';
+import{ship,buildShipMesh,stepShip,FLY,AP,ORBIT_R,toggleAP,apArrived}from'./src/ship.js';
 import{move}from'./src/player.js';
 import{world,generate,setShip}from'./src/world.js';
 import{serialize,validSave}from'./src/persistence.js';
@@ -167,6 +167,61 @@ console.log('— newtonian flight —');
     [0,0,0],tang,away);
   stepShip(DT);
   check(travels.includes('vs-travel'),'crossing the SOI fires vs-travel');
+
+  // ---- staged autopilot: the full G·G·G beginner ladder, hands-off ----
+  // stage 1 — surface -> parking orbit (worst case: the anti-moon point)
+  clearKeys();travels.length=0;ship.piloting=true;
+  setShipState(away.map(v=>v*1.01),[0,0,0],tang,away);
+  AP.lock=true;toggleAP();
+  check(AP.on&&AP.mode==='orbit','G on the ground stages to-orbit (even locked)');
+  let apT=0;
+  while(apT<120&&AP.on){stepShip(DT);apT+=DT;}
+  const dr128=world.P.dr;
+  let arl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
+  let avr=(ship.vel[0]*ship.pos[0]+ship.vel[1]*ship.pos[1]+ship.vel[2]*ship.pos[2])/arl;
+  const vOrb=Math.sqrt(30*dr128/ORBIT_R);
+  const vt=Math.hypot(ship.vel[0]-ship.pos[0]/arl*avr,ship.vel[1]-ship.pos[1]/arl*avr,
+                      ship.vel[2]-ship.pos[2]/arl*avr);
+  check(!AP.on&&Math.abs(arl-ORBIT_R)<0.05&&Math.abs(vt-vOrb)<0.15*vOrb,
+    `stage 1: surface -> circular orbit (${apT.toFixed(0)}s, r=${arl.toFixed(2)}, vt=${(vt/dr128).toFixed(0)} bl/s)`);
+  check(AP.done.includes('orbit'),'stage complete hint set');
+  // orbit holds unpowered for 10s (bound, no thrust)
+  for(let t2=0;t2<10;t2+=DT)stepShip(DT);
+  arl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
+  check(arl>1.15&&arl<2.8,`parking orbit holds unpowered — eccentric from the moon's tide (r=${arl.toFixed(2)})`);
+  // stage 2 — orbit -> the moon's SOI (G again, still locked)
+  toggleAP();
+  check(AP.on&&AP.mode==='transfer','G in orbit + lock stages transfer');
+  apT=0;
+  while(apT<240&&!travels.length){stepShip(DT);apT+=DT;}
+  check(travels.length>0,`stage 2: orbit -> moon SOI hands-off (${apT.toFixed(0)}s sim)`);
+  check(AP.on,'autopilot rides through the switch');
+  // emulate main.js's travel handoff: home frame -> moon frame, then the
+  // arrival hook — the autopilot should circularize into the NEW orbit
+  {
+    const{C:Ch}=layout('home',128,128);
+    const ratio=128/MOON_N;
+    generate(moonSeedOf(1337),MOON_N,'desert');
+    for(let i=0;i<3;i++){ship.pos[i]=(ship.pos[i]-Ch[i])*ratio;ship.vel[i]*=ratio;}
+    apArrived();
+  }
+  check(AP.mode==='orbit'&&!AP.lock,'arrival flips to orbit mode, lock cleared');
+  apT=0;
+  while(apT<120&&AP.on){stepShip(DT);apT+=DT;}
+  const drM=world.P.dr;
+  arl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
+  check(!AP.on&&Math.abs(arl-ORBIT_R)<0.15,
+    `stage 2 ends in MOON orbit (${apT.toFixed(0)}s, r=${arl.toFixed(2)})`);
+  // stage 3 — orbit -> touchdown (G again, no lock)
+  toggleAP();
+  check(AP.on&&AP.mode==='land','G in orbit without lock stages landing');
+  apT=0;
+  while(apT<120&&AP.on){stepShip(DT);apT+=DT;}
+  arl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
+  const lsp=Math.hypot(ship.vel[0],ship.vel[1],ship.vel[2])/drM;
+  check(!AP.on&&lsp<5&&arl>=1,
+    `stage 3: orbit -> touchdown on the moon (${apT.toFixed(0)}s, ${lsp.toFixed(1)} bl/s)`);
+  ship.piloting=false;
   delete globalThis.window;
 }
 

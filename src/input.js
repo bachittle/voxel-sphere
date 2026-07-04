@@ -88,6 +88,8 @@ window.addEventListener('keydown',e=>{
     if(e.code==='KeyE'&&!S.paused)SHIP.interact(); // F.1: enter/exit the ship
     if(e.code==='KeyV'&&SHIP.ship.piloting)        // OW landing camera toggle
       SHIP.ship.lcam=!SHIP.ship.lcam;
+    if(e.code==='KeyT')SHIP.toggleLock();          // lock the far body
+    if(e.code==='KeyG')SHIP.toggleAP();            // autopilot: fly-to / land
     if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))
       e.preventDefault();}});
 window.addEventListener('keyup',e=>{move.KEY[e.code]=false;});

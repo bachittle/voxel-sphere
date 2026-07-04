@@ -32,6 +32,7 @@ const qvEl=document.getElementById('qv');
 // F.1 pilot HUD: reference body, velocity readout, 6-axis thruster lights
 const vBodyEl=document.getElementById('vbody'),vReadEl=document.getElementById('vread');
 const thrEls=[...document.getElementById('vthr').children];
+let apDoneT=0;                     // shows the ✓ stage-complete hint briefly
 
 function freeChunks(){for(const c of chunkMs){freeMesh(c.op);freeMesh(c.wa);}chunkMs=[];}
 function updateQv(){let q=0;for(const c of chunkMs)q+=c.op.quads+c.wa.quads;
@@ -185,18 +186,30 @@ function frame(t){
     const nearA=srl<dO/k;              // nearer body, measured in own radii
     const names=world.type==='desert'?['the moon','the home planet']
                                      :['the home planet','the moon'];
-    vBodyEl.textContent=(nearA?srl<2.5:dO<2.5*k)
+    if(SHIP.AP.on){                    // autopilot status owns the top line
+      apDoneT=0;
+      vBodyEl.textContent='AP '+SHIP.AP.txt+
+        (SHIP.AP.mode==='transfer'?' → '+names[1]:'');}
+    else if(SHIP.AP.done){             // stage complete: hint the next key
+      if(!apDoneT)apDoneT=t;
+      if(t-apDoneT>4000){SHIP.AP.done='';apDoneT=0;}
+      else vBodyEl.textContent=SHIP.AP.done;}
+    else if(SHIP.AP.lock){             // lock readout: range + closing rate
+      const cls=(s.vel[0]*(C[0]-s.pos[0])+s.vel[1]*(C[1]-s.pos[1])+
+                 s.vel[2]*(C[2]-s.pos[2]))/dO;
+      vBodyEl.textContent='◎ '+names[1]+' · '+
+        Math.max(0,Math.round((dO-k)*idr))+' bl · '+
+        (cls>=0?'▶':'◀')+Math.abs(cls*idr).toFixed(0);}
+    else vBodyEl.textContent=(nearA?srl<2.5:dO<2.5*k)
       ?'over '+(nearA?names[0]:names[1])+' · alt '+
         Math.max(0,Math.round((nearA?srl-1:dO-k)*idr))
       :'deep space';
     vReadEl.textContent=(sp*idr).toFixed(0)+' bl/s · '+
       (vr<0?'↓':'↑')+Math.abs(vr*idr).toFixed(0)+(s.lcam?' · ⬇CAM':'');
-    const KEY=move.KEY;
-    const tf=(KEY.KeyW||KEY.ArrowUp?1:0)-(KEY.KeyS||KEY.ArrowDown?1:0)+Math.sign(move.joyY),
-          ts=(KEY.KeyD||KEY.ArrowRight?1:0)-(KEY.KeyA||KEY.ArrowLeft?1:0)+Math.sign(move.joyX),
-          tu=(KEY.Space||move.jumpHeld?1:0)-
-             (KEY.ShiftLeft||KEY.ShiftRight||KEY.KeyC||move.downHeld?1:0);
-    const on=[tf>0,tf<0,ts<0,ts>0,tu>0,tu<0,!!KEY.KeyB];
+    // lights show actual thruster demand (ship.thr), so autopilot burns
+    // light up too; ⏹ is the manual match-velocity key
+    const[tf,ts,tu]=s.thr,e=0.05;
+    const on=[tf>e,tf<-e,ts<-e,ts>e,tu>e,tu<-e,!!move.KEY.KeyB];
     for(let i=0;i<7;i++)thrEls[i].classList.toggle('on',on[i]);}
   // F.1 parked-ship mesh: rebuilt on state change only; hidden while piloting
   // (you're in the cockpit — the hull would fill the camera)
@@ -409,6 +422,7 @@ window.addEventListener('vs-travel',()=>{
   regenerate(hs,null,()=>{
     const ratio=oldN/world.P.N,s=SHIP.ship;
     for(let i=0;i<3;i++){s.pos[i]=(s.pos[i]-C[i])*ratio;s.vel[i]*=ratio;}
+    SHIP.apArrived();               // a locked autopilot flips to landing
     s.rev++;traveling=false;});});
 
 // debug/test handle (browser-automation smoke tests hook in here)
