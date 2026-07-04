@@ -4,7 +4,7 @@
 import{S}from'./state.js';
 import{canvas}from'./gl.js';
 import{SET,saveSettings,inputMode}from'./settings.js';
-import{exportFile,shareURL,serialize}from'./persistence.js';
+import{exportFile,shareURL,validSave}from'./persistence.js';
 
 const menuEl=document.getElementById('menu');
 const uiEl=document.getElementById('ui');
@@ -89,8 +89,10 @@ fileEl.addEventListener('change',async()=>{
   const f=fileEl.files[0];fileEl.value='';
   if(!f)return;
   try{
-    const d=JSON.parse(await f.text());
-    if(d.v!==1||!Array.isArray(d.edits))throw 0;
+    // bug fix rode along with v3: this used to demand v===1, so every v2
+    // export failed to import; persistence's validator is the one truth now
+    const d=validSave(JSON.parse(await f.text()));
+    if(!d)throw 0;
     window.dispatchEvent(new CustomEvent('vs-import',{detail:d}));
     status('imported seed '+d.seed);
   }catch(e){status('not a voxel-sphere save');}});

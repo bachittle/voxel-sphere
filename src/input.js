@@ -9,9 +9,13 @@ import{dig,place}from'./interact.js';
 import{vnorm,clampf,rotYv}from'./math.js';
 import{inputMode}from'./settings.js';
 import{openMenu,closeMenu,menuOpen,toggleDebug}from'./menu.js';
-import{select,cycle,selectedTile}from'./hotbar.js';
+import{select,cycle,selectedTile,SHIP_ITEM}from'./hotbar.js';
+import*as SHIP from'./ship.js';
 
-const placeSel=()=>{const t=selectedTile();if(t!==null)place(t);};
+const placeSel=()=>{const t=selectedTile();
+  if(t===SHIP_ITEM)SHIP.placeShip();else if(t!==null)place(t);};
+// look routing: piloting steers the ship's free frame instead of the head
+const look=(dx,dy)=>SHIP.ship.piloting?SHIP.pilotLook(dx,dy):fpLook(dx,dy);
 
 // ===== pointer lock (B.4 desktop mode) =====
 // FP desktop: click captures the mouse; ESC (browser-forced unlock) opens the
@@ -39,11 +43,11 @@ window.addEventListener('mouseup',e=>{S.drag=false;
 canvas.addEventListener('contextmenu',e=>{e.preventDefault();
   if(!locked()&&S.mode==='fp'&&moved<5)placeSel();});
 window.addEventListener('mousemove',e=>{
-  if(locked()){fpLook(e.movementX,e.movementY);return;}
+  if(locked()){look(e.movementX,e.movementY);return;}
   if(!S.drag)return;
   const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
   moved+=Math.abs(dx)+Math.abs(dy);
-  if(S.mode==='fp'){fpLook(dx,dy);return;}
+  if(S.mode==='fp'){look(dx,dy);return;}
   S.yaw+=dx*0.01;S.pitch=Math.max(-1.5,Math.min(1.5,S.pitch+dy*0.01));});
 canvas.addEventListener('wheel',e=>{e.preventDefault();
   if(S.mode==='fp'){cycle(e.deltaY>0?1:-1);return;} // scroll = hotbar (B.3)
@@ -60,7 +64,7 @@ canvas.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches;
 canvas.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches;
   if(t.length===1&&S.drag){const dx=t[0].clientX-lx,dy=t[0].clientY-ly;
     lx=t[0].clientX;ly=t[0].clientY;
-    if(S.mode==='fp'){fpLook(dx,dy);return;}
+    if(S.mode==='fp'){look(dx,dy);return;}
     S.yaw+=dx*0.01;S.pitch=Math.max(-1.5,Math.min(1.5,S.pitch+dy*0.01));}
   else if(t.length===2&&S.mode==='orbit'){const d=tdist(t),[nx,ny]=tcen(t);
     if(pinch)S.dist=Math.max(1.6,Math.min(9,S.dist*(pinch/d)));
@@ -80,7 +84,8 @@ window.addEventListener('keydown',e=>{
     if(n>=1&&n<=9){select(n-1);return;}}
   move.KEY[e.code]=true;
   if(S.mode==='fp'){
-    if(e.code==='KeyF')toggleFly();
+    if(e.code==='KeyF'&&!SHIP.ship.piloting)toggleFly();
+    if(e.code==='KeyE'&&!S.paused)SHIP.interact(); // F.1: enter/exit the ship
     if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))
       e.preventDefault();}});
 window.addEventListener('keyup',e=>{move.KEY[e.code]=false;});
@@ -116,7 +121,10 @@ hold(document.getElementById('btnJump'),v=>move.jumpHeld=v);
 hold(document.getElementById('btnDown'),v=>move.downHeld=v);
 function toggleFly(){player.fly=!player.fly;player.vr=0;
   document.body.classList.toggle('fly',player.fly);}
-document.getElementById('btnFly').addEventListener('click',toggleFly);
+// touch parity for F.1: near a parked ship (or while piloting) the ✈ button
+// is enter/exit; elsewhere it stays the fly toggle
+document.getElementById('btnFly').addEventListener('click',()=>{
+  if(SHIP.interact())return;toggleFly();});
 
 // mode switching: FP spawns at the point under the orbital camera and back
 const modeBtn=document.getElementById('modeBtn'),hintEl=document.getElementById('hint');
@@ -143,4 +151,6 @@ function exitFP(){
   S.mode='orbit';document.body.classList.remove('fp');
   modeBtn.textContent='🚶 explore surface';
   hintEl.textContent='drag to rotate · scroll or pinch to zoom · two-finger drag to pan';}
-modeBtn.addEventListener('click',()=>{if(!world.P)return;S.mode==='orbit'?enterFP():exitFP();});
+modeBtn.addEventListener('click',()=>{if(!world.P)return;
+  if(SHIP.ship.piloting)SHIP.exitShip(); // land first, then the orbit cam
+  S.mode==='orbit'?enterFP():exitFP();});

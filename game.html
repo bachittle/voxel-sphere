@@ -63,6 +63,11 @@
     margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.75);
     box-shadow:0 0 3px rgba(0,0,0,.8);z-index:8;pointer-events:none;}
   body.fp #xh{display:block;}
+  /* F.1 pilot HUD: velocity readout (Newtonian flight needs instruments) */
+  #vel{display:none;position:fixed;left:50%;bottom:76px;transform:translateX(-50%);
+    background:rgba(18,20,28,.72);padding:4px 12px;border-radius:8px;
+    font-size:13px;color:#f9e2af;letter-spacing:.5px;z-index:8;pointer-events:none;}
+  body.pilot #vel{display:block;}
   /* B.4: desktop mode hides touch FABs (keys do it all) + debug panel until ` */
   body.desktop #joy,body.desktop #btnJump,body.desktop #btnDown,
   body.desktop #btnFly{display:none;}
@@ -142,6 +147,7 @@
   <div id="btnFly" class="fab">✈ fly</div>
 </div>
 <div id="xh"></div>
+<div id="vel"></div>
 <div id="hotbar"></div>
 <div id="menu" class="off">
   <div id="menuCard">
@@ -169,6 +175,9 @@
         <b>space</b><span>jump · swim up · fly up</span>
         <b>shift / C</b><span>dive · fly down</span>
         <b>F</b><span>toggle fly</span>
+        <b>E</b><span>enter / exit the spaceship (🚀 hotbar slot 8 places it)</span>
+        <b>Z / X</b><span>roll the ship</span>
+        <b>B</b><span>match velocity — retro-burn to a stop</span>
         <b>ESC</b><span>pause menu</span>
         <b>`</b><span>debug panel (time, spin, cutaway, seed)</span>
         <b>🛰 / 🚶</b><span>orbit view ↔ walk the surface</span>
@@ -178,7 +187,7 @@
         <b>drag</b><span>look</span>
         <b>joystick</b><span>walk</span>
         <b>tap / long-press</b><span>break / place</span>
-        <b>⭡ ⭣ ✈</b><span>jump · down · fly toggle</span>
+        <b>⭡ ⭣ ✈</b><span>jump · down · fly toggle (✈ near a ship = board it)</span>
       </div>
     </details>
     <div class="sec">World</div>

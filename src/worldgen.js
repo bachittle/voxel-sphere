@@ -50,11 +50,20 @@ function profile(N){
 }
 
 // ---- planet construction ----
-function init(seed,N){
+// type (F.2/E.9): 'earth' = the reference gen; 'desert' = the all-desert
+// preset — same terraced height field but the floor is raised to SEA-1 so no
+// ocean exists (former seabeds become flat sand playas), every column is
+// DESERT biome, and trees never spawn. Caves/ores/lava core stay.
+function init(seed,N,type='earth'){
   const n2=N*N,cols=6*n2;
   const dr=Math.PI/(2*N);            // shell thickness = block width at surface
-  const SEA=57;                      // shells below sea level (r=1)
+  // E.7 depth fix (2026-07-04): SEA was a constant 57 while dr grows as N
+  // shrinks, so at N=64 the crust exceeded the radius (negative-radius
+  // inside-out cells below shell 17). Scale depth with N. N>=128 is
+  // untouched: floor(0.7/dr)=57 exactly at N=128, larger above.
+  const SEA=Math.min(57,Math.floor(0.7/dr)); // shells below sea level (r=1)
   const SH=SEA+27;                   // max shells stored (mountain ceiling)
+  const desert=type==='desert';
   const PR=profile(N);
   const per=makePerlin(seed);
   const fbm=(x,y,z,f,oct)=>{let a=0.5,s=0,n=0;
@@ -90,8 +99,9 @@ function init(seed,N){
       let hR=PR.band*(tf+Math.min(1,Math.max(0,(tb-tf-0.5)/0.18+0.5)));
       const mm=Math.min(1,Math.max(0,(mmask-0.02-PR.mmBias)/0.5));
       hR+=mm*mm*ridge*ridge*22;
-      const h=Math.max(4,Math.min(SEA+25,SEA-1+Math.round(hR)));
+      const h=Math.max(desert?SEA-1:4,Math.min(SEA+25,SEA-1+Math.round(hR)));
       H[col]=h;
+      if(desert){BI[col]=B.DESERT;continue;} // one biome, no climate to run
       // climate
       const lat=Math.abs(y);
       const temp=1-1.25*Math.pow(lat,2.2)+fbm(x+7.7,y+3.3,z+9.1,4.1,2)*0.24
@@ -155,7 +165,7 @@ function init(seed,N){
   // 132MB–528MB — skip it and recompute (mat() is cheap, meshing only asks
   // about exposed cells)
   const matCache=N<=256?new Int8Array(cols*SH):null;
-  return{seed,N,n2,cols,dr,SEA,SH,radius,rc,BALLR,corner,CN,dir,H,BI,trees,
+  return{seed,N,type,n2,cols,dr,SEA,SH,radius,rc,BALLR,corner,CN,dir,H,BI,trees,
          treeCells,per,fbm,matCache};
 }
 

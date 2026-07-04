@@ -2,7 +2,9 @@
 
 A from-scratch WebGL voxel game where the world is a **finite sphere** —
 "down" is toward a molten core, "up" is out to the sky. Minecraft-style
-creative sandbox on a cubed-sphere grid with onion-shell depth.
+creative sandbox on a cubed-sphere grid with onion-shell depth. The world is
+a two-body system: an earth-like home planet and a small desert moon you
+reach by spaceship (🚀 in the hotbar — place it, press E, fly).
 
 **▶ Play:** https://chittle.cc/voxel-sphere/ (hub) ·
 [game.html](https://chittle.cc/voxel-sphere/game.html) (the game)
@@ -15,9 +17,14 @@ decision probe); the live game is `game.html` + `src/`.
 ## Controls
 
 Click to capture the mouse. WASD walk · space jump/swim · shift dive ·
-F fly · 1–9/scroll hotbar · click break · right-click place · ESC menu
-(settings, save export/import/share) · backtick debug panel. Touch works
-too — joystick + tap.
+F fly · E enter/exit the spaceship · 1–9/scroll hotbar · click break ·
+right-click place · ESC menu (settings, save export/import/share) ·
+backtick debug panel. Touch works too — joystick + tap (✈ near a ship
+boards it).
+
+Ship flight is Newtonian (Outer Wilds-style): thrust accelerates, velocity
+persists, both planets pull real gravity — orbit, slingshot, flip-and-burn.
+Z/X roll · B match velocity (retro-burn to a stop).
 
 ## Dev
 
@@ -30,7 +37,9 @@ python3 -m http.server 8000
 
 Checks (Node, no deps): `node game-check.mjs` (worldgen vs frozen reference
 snapshot + integrity), `node chunk-check.mjs` (chunked mesher vs monolithic,
-incremental remesh vs full rebuild), `node planet-check.mjs` (frozen Build 1).
+incremental remesh vs full rebuild), `node system-check.mjs` (desert moon
+gen, two-body frame math, ship mesh, Newtonian flight physics, save v3),
+`node planet-check.mjs` (frozen Build 1).
 After an *intentional* worldgen change: `node make-reference.mjs` and commit
 the new `reference-v2.json`.
 

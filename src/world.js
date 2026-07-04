@@ -11,17 +11,22 @@
 import*as WG from'./worldgen.js';
 
 export const N=128;
-export const world={seed:0,P:null,edits:new Map(),editsByCol:new Map(),openMask:new Map(),
+export const world={seed:0,type:'earth',P:null,
+  edits:new Map(),editsByCol:new Map(),openMask:new Map(),
   rev:0,                               // bumped per edit; autosave watches it (B.5)
-  torches:new Set()};                  // packed torch cells; C.1 point lights
+  torches:new Set(),                   // packed torch cells; C.1 point lights
+  ship:null};                          // parked ship {pos,fwd,up} — F.1, save v3
 
-export function generate(seed,n=N){
-  world.seed=seed;
-  world.P=WG.init(seed,n);
+export function generate(seed,n=N,type='earth'){
+  world.seed=seed;world.type=type;
+  world.P=WG.init(seed,n,type);
   world.edits.clear();world.editsByCol.clear();world.openMask.clear();
-  world.torches.clear();
+  world.torches.clear();world.ship=null;
   return world.P;
 }
+// F.1: park/unpark the ship. Parked state persists with the save (v3);
+// a ship in flight belongs to no world and is deliberately not saved.
+export function setShip(sh){world.ship=sh;world.rev++;}
 
 const key=(col,s)=>col*world.P.SH+s;
 // material at (col, shell s): edit overlay first, then pure worldgen —

@@ -6,6 +6,7 @@ export function mul(a,b){const o=new Array(16);for(let r=0;r<4;r++)for(let c=0;c
 export function rotX(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];}
 export function rotY(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];}
 export function translate(x,y,z){return[1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1];}
+export const scaleM=k=>[k,0,0,0,0,k,0,0,0,0,k,0,0,0,0,1];
 
 export const vdot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 export const vcross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];

@@ -21,6 +21,10 @@ playtest: the world fights the builder, so world-shaping beats sky polish).
 *(updated 2026-07-03 evening — E.5/E.6/E.1/E.2/A.2/D.2 all landed; game is
 live at chittle.cc/voxel-sphere)*
 
+**F.1 (flyable spaceship) + F.2 (earth home + desert moon system) landed
+2026-07-04 — see Phase F for every design decision. Node checks green;
+hands-on flight verification is Bailey's.**
+
 **Bailey's verdict (2026-07-03 night): colossal (1024) is awesome — if it
 can be optimized it's the starting planet; huge (512) is runner-up. The
 bigger the world, the more Minecraft it feels.** And the math agrees —
@@ -323,6 +327,9 @@ surface distortion accepted for now.
   at N=64 the crust is "140% of the radius": below shell 17 the radius goes
   NEGATIVE (inside-out cells around the core). Fix: scale depth with N
   (e.g. SEA=min(57, ~0.6/dr)) — changes save-compat for small worlds only.
+  **Fixed 2026-07-04 (rode with F.2 — the moon is N=64):**
+  SEA=min(57,floor(0.7/dr)) — exactly 57 at N≥128 (oracle stays green),
+  SEA=28/SH=55 at N=64. Pre-fix small-world saves shift, as predicted.
 - **E.8 🔄 Very large worlds: 512 / 1024 selectable (2026-07-03)** — size
   menu gained **huge (512)** — warns, then generates (measured: 2.0s
   worldgen+mesh in browser) — and **colossal (1024)** behind an
@@ -360,8 +367,15 @@ surface distortion accepted for now.
   GPU-memory audit, culling-artifact bug above, and someday LOD levels for
   mid-zoom + distant planets (S.6 reuse — Bailey called this). Bailey: colossal = target starting planet; even larger sizes if
   optimization allows.
-- **E.9 ⬜ Planet types / archetypes (Bailey, 2026-07-03 — idea catalog,
-  deliberately wide)** — themed worldgen presets alongside size: a preset =
+- **E.9 🔄 Planet types / archetypes (Bailey, 2026-07-03 — idea catalog,
+  deliberately wide)** — **first preset shipped 2026-07-04: all-desert**, as
+  the F.2 moon's gen — worldgen grew a `type` param ('earth' default;
+  'desert' raises the height floor to SEA-1 so former seabeds become flat
+  sand playas, collapses the biome table to desert, drops trees; terraces
+  read as mesas; caves/ores/lava core kept). Save keys learned the type
+  suffix (v3). Remaining: the rest of the catalog + a UI type selector
+  (currently 'desert' is reachable only as the moon).
+  Original idea: themed worldgen presets alongside size: a preset =
   profile overrides (sea level, amplitude, biome table, palette, features).
   Sci-fi archetype pool to draw from: **all-ocean** (Kamino), **archipelago**,
   **all-desert dunes** (Tatooine / Arrakis), **ice world** (Hoth),
@@ -378,6 +392,79 @@ surface distortion accepted for now.
   its line added here.** *Verifier:* a new player can learn the game from
   the menu alone.
 
+## Phase F — Ships & Second World ✅ (Bailey 2026-07-04; built same day)
+
+- **F.1 ✅ Spaceship — placeable, flyable hotbar item (2026-07-04)** — shipped
+  as `src/ship.js`. **Both open questions resolved: the ship is a free-flying
+  ENTITY (not grid voxels — placing edits no chunks, flying re-meshes
+  nothing), and it's a real multi-block model, not a one-cell placeholder** —
+  a 14-cell voxel hull (iron fuselage + swept wings, gold nose, glass canopy,
+  lava-glow engine rears) emitted in planet-frame coords through the terrain
+  mesher, so the terrain shader lights it (terminator included) with zero
+  shader changes. Hotbar slot 8 = 🚀; right-click plants it settled on the
+  aimed column — **one ship per world**, placing again moves it. **E** enters
+  and exits (touch: the ✈ button doubles as board/exit near a ship; both in
+  the Controls menu per E.5). The ship keeps its own free orthonormal frame
+  (mouse = yaw about ship-up, pitch about starboard — Rodrigues, no gimbal;
+  **Z/X roll**). **Flight went NEWTONIAN the same evening (Bailey: "like
+  Outer Wilds")**: thrust is pure acceleration (75 blocks/s², WASD +
+  space/shift), velocity persists — no drag, no altitude throttle, 500
+  blocks/s sanity cap — and **both bodies pull inverse-square**, each with
+  the player's 30 blocks/s² at its own surface, so the ship falls, orbits,
+  slingshots, and lands by flip-and-burn. **B matches velocity** to the
+  active planet (retro-burn assist, OW-style); a HUD readout (speed +
+  vertical rate) shows while piloting. Ground contact kills inward velocity
+  and strut friction bleeds the rest; the hull still rests on the sea
+  *surface* (groundR is the ocean floor — a boat, not a submarine). No crash
+  damage (accepted OW divergence); touch flies with joystick + ⭡⭣ only (no
+  roll/brake buttons yet). The launch-day arcade model (40→400 blocks/s
+  altitude throttle, auto-roll, gravity detached) lasted one session. Knobs
+  live in `FLY` (ship.js): ACC/G/MAXV/ROLL. Exit settles the hull to the
+  ground and steps you out 2.2 blocks starboard, on foot (afloat if over
+  ocean). Sky fades to black space with altitude. Persistence: **save v3** —
+  a parked ship rides `world.ship` (autosave via rev); a ship in flight
+  belongs to no world and isn't saved (reload → last parked spot; the
+  creative item is infinite anyway). Known quirk, accepted: blocks can be
+  placed through a parked ship (it's not in the grid) — re-place to free it.
+  *Verified:* `system-check.mjs` Newtonian section — inverse-square fall,
+  no-drag coast, a full circular orbit holding at r=1.5, match-velocity
+  brake, strut landing, SOI travel event — plus hull-mesh integrity; all
+  prior node checks byte-green. *Bailey's verifier still open:* place a
+  ship, get in, fly it — orbit, land, flip-and-burn to the moon — by hand.
+- **F.2 ✅ Two planets — earth-like home + desert moon (2026-07-04)** —
+  shipped as `src/system.js` + a worldgen `type` param. The system: the
+  **home planet** (the menu's seed/N, current gen) plus a **desert moon** —
+  N=64, E.9's all-desert preset, **seed = home seed + 101** (derived,
+  invertible). Open questions resolved: **one active world at a time** —
+  world.js is untouched as the single editable world; the far body is a
+  **baked impostor mesh** (buildStatic <256, E.8's LOD ≥256; edits invisible
+  at range, LOD precedent). **The BLOCK is the shared physical unit**: the
+  far body renders at scale N_other/N_active, so blocks are the same size in
+  both worlds and a small-N world IS a small planet (half the home radius at
+  N=128, a speck from a colossal 1024). **The moon is geostationary** — a
+  fixed direction in the co-rotating frame at 2.5+3·(64/N_home) home radii
+  (=4.0 at 128), so frames convert by **translate + uniform scale only,
+  never rotation**, and the shared theta sweeps the sun over both worlds
+  consistently (tidally locked both ways: canon). Travel: the ship crossing
+  **1.5 far-radii** saves the world, bakes the outgoing impostor, regenerates
+  the destination, and transforms ship pos/vel by N_old/N_new — thresholds
+  proven ping-pong-free. **Fixed same evening:** during the 30ms
+  regen-overlay gap the frame loop kept stepping the ship with `SET.at`
+  already flipped but the old world live (mismatched frame); the ship now
+  freezes while `traveling` and hands off at exactly the switch radius
+  (browser-measured 1.484). Each world keeps its own save (v3 records `type`;
+  key gains `:desert`); `SET.at` persists so reload resumes on the body you
+  were on; menu seed/size always reshape HOME; import/share of a moon save
+  rejoins its system via seed−101. **E.7's small-world depth bug fixed en
+  route** (the moon needs N=64): SEA=min(57,floor(0.7/dr)) — N≥128
+  byte-identical, oracle green. **Menu import bug fixed en route**: import
+  demanded v===1, so every v2 export failed to re-import; validation moved to
+  persistence's `validSave`. *Verified:* `system-check.mjs` — desert gen
+  (zero ocean, all-desert, no trees, crust fits), frame math round-trips,
+  block-size invariance, save-v3 compat — plus moon chunked-vs-monolithic
+  mesh parity and the node flight sim. *Bailey's verifier still open:* fly
+  earth → moon and walk on it — by hand.
+
 ## Shelf — explicitly later ⬜
 
 - **S.1 ⬜ Block-light propagation** — Minecraft-true flood-fill light levels
@@ -391,8 +478,12 @@ surface distortion accepted for now.
   byte-equivalence oracle gets re-aimed at a frozen reference snapshot (v2)
   instead of retired. Remaining: unit tests for grid math/worldgen, integration
   tests for chunk edits, browser-automation smoke tests.
-- **S.6 ⬜ Visitable moon / solar system** (old 5.1) — impostor→chunk LOD
+- **S.6 🔄 Visitable moon / solar system** (old 5.1) — impostor→chunk LOD
   promotion, space flight between spheres. The Outer Wilds end-state.
+  **Groundwork landed with F.1/F.2 (2026-07-04):** ship flight, far-body
+  impostor, frame handoff between two spheres. Remaining here: more bodies,
+  real orbits, smoother promotion (today's switch is a regen behind the
+  loading overlay).
 - **S.7 ⬜ Multiplayer-someday** — either a small backend (the shelved Go
   server, needed for authoritative state / >2-3 players) or **peer-to-peer**
   (WebRTC data channels — serverless gameplay traffic, but still needs
@@ -427,4 +518,5 @@ Depth — 3D nearest-neighbor spacing, max÷min through the solid sphere:
 → Build 1 (frozen). *Checks:* `compute-ratio.mjs`, `measure-all.mjs`,
 `depth-measure.mjs`, `planet-check.mjs` (Build 1), `game-check.mjs` (modular
 vs Build 1), `icosphere-check.mjs`, `chunk-check.mjs` (B.1 chunked mesher vs
-Build 1 + incremental-vs-full edit oracle).
+Build 1 + incremental-vs-full edit oracle), `system-check.mjs` (F.1/F.2
+desert preset, two-body frame math, ship mesh, save v3).
