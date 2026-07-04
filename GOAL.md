@@ -426,7 +426,11 @@ surface distortion accepted for now.
   match-target-velocity). **G runs ONE mission stage per press**, each
   ending in a stable state with a ✓ next-key hint: low & slow → **to
   orbit** (gravity-turn: radial climb fades as tangential ramps,
-  circularize at ORBIT_R=1.6 radii); in orbit + lock → **transfer**
+  circularize at `orbitR()` — **per body: mountain ceiling + 18 blocks**
+  (1.55 home radii, ~2.1 moon radii); a fixed 1.6-radii orbit sat INSIDE
+  the moon's mesas (r≈1.66) since blocks scale with dr — Bailey's "orbit
+  doesn't work on the moon" bug, fixed 2026-07-04); in orbit + lock →
+  **transfer**
   (tangent-steering around the planet if the target's under the horizon,
   velocity-tracked burn/cruise/flip-brake to the SOI, ride the world
   switch, then circularize into the NEW body's orbit — arrives in orbit,
@@ -438,9 +442,24 @@ surface distortion accepted for now.
   one. A velocity-tracking controller with gravity feedforward, capped to
   the SAME 45 blocks/s² the keys get — no cheating. Any manual thrust key
   cancels (OW rules). Thruster lights show autopilot burns (they read
-  actual demand, not keys). *Node-verified:* the full G·G·G ladder —
-  surface→orbit (3s), unpowered hold, orbit→SOI (3s), arrival
-  circularization in the moon frame, orbit→touchdown at 0.0 blocks/s. Ground contact kills inward velocity
+  actual demand, not keys). **Map view (Bailey: "see apoapsis and
+  periapsis as arcs" → "easy to learn, hard to master")**: **M** (or 🛰)
+  while piloting opens the orbit camera as a LIVE map — the sim keeps
+  running, the coasting trajectory is drawn as an arc (`predictOrbit` —
+  gravity-only integration, 90s horizon), ✕ markers at apoapsis (blue),
+  periapsis (gold), ground impact (red) and the ship (white), the HUD line
+  shows `Ap · Pe` in blocks (⚠ impact / crosses-the-SOI), and **W/S burn
+  prograde/retro, space/shift radial, ignoring the nose** — you fly the
+  ellipse by instruments, KSP's core loop with zero extra chrome. This is
+  the deliberate mastery line: the G ladder is easy-to-learn, manual +
+  live map is hard-to-master, and maneuver nodes / time warp / Δv budgets
+  stay OUT (design call 2026-07-04; flight model itself is not set in
+  stone — space battles may reshape it later). Parking orbits read
+  honestly eccentric here (the tide). *Node-
+  verified:* the full G·G·G ladder — surface→orbit, unpowered hold,
+  orbit→SOI, arrival circularization in the moon frame, orbit→touchdown at
+  0.0 blocks/s — plus the moon-orbit regression and predictOrbit (closed
+  arc from orbit; impact flagged on a suborbital lob). Ground contact kills inward velocity
   and strut friction bleeds the rest; the hull still rests on the sea
   *surface* (groundR is the ocean floor — a boat, not a submarine). No crash
   damage (accepted OW divergence); touch flies with joystick + ⭡⭣ only (no

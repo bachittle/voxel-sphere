@@ -155,6 +155,21 @@ function exitFP(){
   S.mode='orbit';document.body.classList.remove('fp');
   modeBtn.textContent='🚶 explore surface';
   hintEl.textContent='drag to rotate · scroll or pinch to zoom · two-finger drag to pan';}
+// map view while piloting (M or the 🛰 button): freeze the flight, keep the
+// cockpit — the orbit cam shows the predicted trajectory (apo/periapsis)
+function toggleMap(){
+  if(!SHIP.ship.piloting)return false;
+  if(S.mode==='fp'){S.mode='orbit';document.body.classList.remove('fp');
+    document.exitPointerLock&&document.exitPointerLock();
+    modeBtn.textContent='🚀 cockpit';
+    hintEl.textContent='map — live · W/S prograde/retro · space/shift radial · M cockpit';}
+  else{S.mode='fp';document.body.classList.add('fp');
+    modeBtn.textContent='🛰 orbit view';
+    hintEl.textContent='click to capture the mouse';}
+  return true;}
+window.addEventListener('keydown',e=>{
+  if(e.code==='KeyM'&&!menuOpen()&&
+     e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT')toggleMap();});
 modeBtn.addEventListener('click',()=>{if(!world.P)return;
-  if(SHIP.ship.piloting)SHIP.exitShip(); // land first, then the orbit cam
+  if(toggleMap())return;
   S.mode==='orbit'?enterFP():exitFP();});

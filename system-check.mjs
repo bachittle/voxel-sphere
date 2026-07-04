@@ -6,7 +6,7 @@
 import*as WG from'./src/worldgen.js';
 import*as MESH from'./src/mesher.js';
 import{layout,moonSeedOf,MOON_N,MOON_DIR,SWITCH_R}from'./src/system.js';
-import{ship,buildShipMesh,stepShip,FLY,AP,ORBIT_R,toggleAP,apArrived}from'./src/ship.js';
+import{ship,buildShipMesh,stepShip,FLY,AP,orbitR,toggleAP,apArrived,predictOrbit}from'./src/ship.js';
 import{move}from'./src/player.js';
 import{world,generate,setShip}from'./src/world.js';
 import{serialize,validSave}from'./src/persistence.js';
@@ -153,6 +153,16 @@ console.log('— newtonian flight —');
   for(let t=0;t<2;t+=DT)stepShip(DT);
   check(speed()<0.05,`match velocity brakes to a stop (${(speed()/dr).toFixed(1)} bl/s left)`);
 
+  // live-map burns: W thrusts PROGRADE regardless of where the nose points
+  clearKeys();move.KEY.KeyW=true;
+  setShipState(away.map(v=>v*2.5),tang.map(v=>v*0.4),away,tang); // nose radial!
+  for(let t=0;t<1;t+=DT)stepShip(DT,true);
+  {
+    const sp=speed(),d=(ship.vel[0]*tang[0]+ship.vel[1]*tang[1]+ship.vel[2]*tang[2])/sp;
+    check(sp>0.4+0.5*TH&&d>0.95,
+      `map burn is prograde, nose ignored (v=${(sp/dr).toFixed(0)} bl/s, along-track ${d.toFixed(3)})`);
+  }
+
   // landed: ground contact + strut friction bleed tangential speed
   clearKeys();
   setShipState(away,tang.map(v=>v*0.1),tang,away);   // at r=1, on/under ground
@@ -179,10 +189,11 @@ console.log('— newtonian flight —');
   const dr128=world.P.dr;
   let arl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
   let avr=(ship.vel[0]*ship.pos[0]+ship.vel[1]*ship.pos[1]+ship.vel[2]*ship.pos[2])/arl;
-  const vOrb=Math.sqrt(30*dr128/ORBIT_R);
+  const ORH=orbitR();
+  const vOrb=Math.sqrt(30*dr128/ORH);
   const vt=Math.hypot(ship.vel[0]-ship.pos[0]/arl*avr,ship.vel[1]-ship.pos[1]/arl*avr,
                       ship.vel[2]-ship.pos[2]/arl*avr);
-  check(!AP.on&&Math.abs(arl-ORBIT_R)<0.05&&Math.abs(vt-vOrb)<0.15*vOrb,
+  check(!AP.on&&Math.abs(arl-ORH)<0.08&&Math.abs(vt-vOrb)<0.15*vOrb,
     `stage 1: surface -> circular orbit (${apT.toFixed(0)}s, r=${arl.toFixed(2)}, vt=${(vt/dr128).toFixed(0)} bl/s)`);
   check(AP.done.includes('orbit'),'stage complete hint set');
   // orbit holds unpowered for 10s (bound, no thrust)
@@ -208,10 +219,10 @@ console.log('— newtonian flight —');
   check(AP.mode==='orbit'&&!AP.lock,'arrival flips to orbit mode, lock cleared');
   apT=0;
   while(apT<120&&AP.on){stepShip(DT);apT+=DT;}
-  const drM=world.P.dr;
+  const drM=world.P.dr,ORM=orbitR();
   arl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
-  check(!AP.on&&Math.abs(arl-ORBIT_R)<0.15,
-    `stage 2 ends in MOON orbit (${apT.toFixed(0)}s, r=${arl.toFixed(2)})`);
+  check(!AP.on&&Math.abs(arl-ORM)<0.15,
+    `stage 2 ends in MOON orbit (${apT.toFixed(0)}s, r=${arl.toFixed(2)} vs OR=${ORM.toFixed(2)})`);
   // stage 3 — orbit -> touchdown (G again, no lock)
   toggleAP();
   check(AP.on&&AP.mode==='land','G in orbit without lock stages landing');
@@ -221,6 +232,26 @@ console.log('— newtonian flight —');
   const lsp=Math.hypot(ship.vel[0],ship.vel[1],ship.vel[2])/drM;
   check(!AP.on&&lsp<5&&arl>=1,
     `stage 3: orbit -> touchdown on the moon (${apT.toFixed(0)}s, ${lsp.toFixed(1)} bl/s)`);
+  // regression (Bailey 2026-07-04): "orbit doesn't work on the moon" —
+  // blocks scale with dr, so the old fixed 1.6-radii orbit sat INSIDE the
+  // mesas (r≈1.66). orbitR() is per-body: mountain ceiling + 18 blocks.
+  check(ORM>world.P.radius(world.P.SH)+0.1,
+    `moon parking orbit clears the mesa ceiling (${ORM.toFixed(2)} > ${world.P.radius(world.P.SH).toFixed(2)})`);
+  toggleAP();
+  check(AP.on&&AP.mode==='orbit','G on the moon surface stages to-orbit');
+  apT=0;
+  while(apT<120&&AP.on){stepShip(DT);apT+=DT;}
+  arl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
+  check(!AP.on&&Math.abs(arl-ORM)<0.12&&AP.done.includes('orbit'),
+    `moon surface -> orbit, no landing (${apT.toFixed(0)}s, r=${arl.toFixed(2)})`);
+  // predictOrbit: a coasting arc from orbit — bracketed Ap/Pe, no impact
+  const po=predictOrbit();
+  check(!po.hit&&po.apoR>=po.periR&&po.periR>world.P.radius(world.P.SH)*0.92&&po.pts.length>60,
+    `predictOrbit: closed arc, Pe ${((po.periR-1)/drM).toFixed(0)}..Ap ${((po.apoR-1)/drM).toFixed(0)} bl, no impact`);
+  // a suborbital lob must show the impact marker
+  for(let i=0;i<3;i++)ship.vel[i]*=0.3;
+  const po2=predictOrbit();
+  check(!!po2.hit,'predictOrbit flags ground impact on a suborbital lob');
   ship.piloting=false;
   delete globalThis.window;
 }

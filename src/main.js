@@ -33,6 +33,7 @@ const qvEl=document.getElementById('qv');
 const vBodyEl=document.getElementById('vbody'),vReadEl=document.getElementById('vread');
 const thrEls=[...document.getElementById('vthr').children];
 let apDoneT=0;                     // shows the ✓ stage-complete hint briefly
+let mapOrb=null;                   // last predicted trajectory (map view)
 
 function freeChunks(){for(const c of chunkMs){freeMesh(c.op);freeMesh(c.wa);}chunkMs=[];}
 function updateQv(){let q=0;for(const c of chunkMs)q+=c.op.quads+c.wa.quads;
@@ -161,9 +162,13 @@ function frame(t){
   // is pending (the 30ms overlay gap), SET.at is already flipped but the old
   // world is still live — freeze the ship so it never steps in that
   // mismatched frame; the regen callback hands it into the new frame.
+  // The map view (orbit cam while piloting) runs LIVE with instrument
+  // burns — stepShip's map arg swaps thrust to prograde/retro + radial.
   if(S.mode==='fp'&&!S.paused){
     if(SHIP.ship.piloting){if(!traveling)SHIP.stepShip(dt/1000);}
     else stepPlayer(dt/1000);}
+  else if(!S.paused&&SHIP.ship.piloting&&!traveling)
+    SHIP.stepShip(dt/1000,true);
   else if(!S.drag&&!S.paused){
     if(spinEl.checked)S.yaw+=0.0011*dt*0.06;
     // E.6: auto-orbit off = planet-fixed camera. Camera yaw and planet theta
@@ -186,7 +191,11 @@ function frame(t){
     const nearA=srl<dO/k;              // nearer body, measured in own radii
     const names=world.type==='desert'?['the moon','the home planet']
                                      :['the home planet','the moon'];
-    if(SHIP.AP.on){                    // autopilot status owns the top line
+    if(S.mode==='orbit'&&mapOrb)       // map view: orbit numbers own the line
+      vBodyEl.textContent='Ap '+(((mapOrb.apoR-1)*idr)|0)+' · Pe '+
+        (((mapOrb.periR-1)*idr)|0)+' bl'+
+        (mapOrb.hit?' · ⚠ impact':mapOrb.soi?' · → crosses the SOI':'');
+    else if(SHIP.AP.on){               // autopilot status owns the top line
       apDoneT=0;
       vBodyEl.textContent='AP '+SHIP.AP.txt+
         (SHIP.AP.mode==='transfer'?' → '+names[1]:'');}
@@ -374,6 +383,26 @@ function frame(t){
   // block-target outline (B.2)
   if(S.mode==='fp'&&INTERACT.target.verts)
     drawLines(INTERACT.target.verts,mvpT,[0.02,0.02,0.05,1]);
+  // map view while piloting: the predicted coasting trajectory, with
+  // apoapsis (✕ blue), periapsis (✕ gold), impact (✕ red), ship (✕ white)
+  if(S.mode==='orbit'&&SHIP.ship.piloting){
+    mapOrb=SHIP.predictOrbit();
+    const P=mapOrb.pts,n=P.length/3;
+    if(n>1){
+      const lv=new Float32Array((n-1)*6);
+      for(let i=0;i<n-1;i++)for(let j=0;j<3;j++){
+        lv[i*6+j]=P[i*3+j];lv[i*6+3+j]=P[(i+1)*3+j];}
+      drawLines(lv,mvpT,[0.54,0.71,0.98,0.9]);}
+    const mark=(p,s)=>new Float32Array([
+      p[0]-s,p[1],p[2],p[0]+s,p[1],p[2],
+      p[0],p[1]-s,p[2],p[0],p[1]+s,p[2],
+      p[0],p[1],p[2]-s,p[0],p[1],p[2]+s]);
+    const ms=5*world.P.dr;
+    if(mapOrb.apo)drawLines(mark(mapOrb.apo,ms),mvpT,[0.54,0.71,0.98,1]);
+    if(mapOrb.peri)drawLines(mark(mapOrb.peri,ms),mvpT,[0.98,0.89,0.69,1]);
+    if(mapOrb.hit)drawLines(mark(mapOrb.hit,ms*1.4),mvpT,[0.95,0.4,0.4,1]);
+    drawLines(mark(SHIP.ship.pos,ms*0.8),mvpT,[1,1,1,1]);
+  }else mapOrb=null;
   // atmosphere rim glow (orbital only; additive)
   if(S.mode==='orbit'){
     gl.useProgram(atmoP);

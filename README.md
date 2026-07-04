@@ -28,7 +28,11 @@ Z/X roll · B match velocity (retro-burn to a stop) · V landing camera ·
 T lock the other planet · G autopilot — one stage per press, like a real
 mission: surface → parking orbit, orbit → transfer to the locked planet
 (arrives into orbit), orbit → land. Each stage ends stable with a ✓ hint;
-touching the stick cancels. The pilot HUD shows the body you're over (or
+touching the stick cancels. M opens the live map: the orbit view draws
+your coasting trajectory (apoapsis/periapsis/impact markers) while the sim
+keeps running, and W/S burn prograde/retro, space/shift radial — fly the
+ellipse by instruments. Easy to learn (the G ladder), hard to master (the
+map). The pilot HUD shows the body you're over (or
 the lock/autopilot status), speed/vertical rate, and 6-axis thruster
 lights.
 

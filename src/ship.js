@@ -36,17 +36,22 @@ export const ship={placed:false,piloting:false,rev:0,lcam:false,
 //                     world switch, then circularize into the NEW orbit
 //   in orbit, no lock → LAND: kill drift, descend, level, touch down
 // Any manual thrust key (WASD/space/shift/B) cancels it — OW rules.
-export const ORBIT_R=1.6;      // parking-orbit radius, in active-body radii
-export const AP={on:false,mode:'land',lock:false,txt:'',done:''};
+// parking-orbit radius is PER BODY: blocks scale with dr, so a fixed ratio
+// fails on the moon (its mesas reach r≈1.66 — an "orbit" at 1.6 was inside
+// the terrain; found by Bailey 2026-07-04). Orbit = mountain ceiling + 12
+// blocks — LOW on purpose: the bodies are a tight binary, so a moon orbit
+// much past half its Hill radius (~3.5 moon radii) gets tide-stripped in
+// minutes. 1.48 home radii at N=128, ~1.96 moon radii at N=64.
+export const orbitR=()=>world.P.radius(world.P.SH)+12*world.P.dr;
+export const AP={on:false,mode:'land',lock:false,txt:'',done:'',ct:0};
 export function toggleLock(){if(!ship.piloting)return;
   AP.lock=!AP.lock;
   if(!AP.lock&&AP.on&&AP.mode==='transfer'){AP.on=false;AP.txt='';}}
 export function toggleAP(){if(!ship.piloting)return;
   if(AP.on){AP.on=false;AP.txt='';return;}
   const rl=Math.hypot(ship.pos[0],ship.pos[1],ship.pos[2]);
-  const rd=[ship.pos[0]/rl,ship.pos[1]/rl,ship.pos[2]/rl];
-  AP.mode=rl-restR(rd)<(ORBIT_R-1)*0.55?'orbit':AP.lock?'transfer':'land';
-  AP.on=true;AP.txt='';AP.done='';}
+  AP.mode=rl<1+(orbitR()-1)*0.7?'orbit':AP.lock?'transfer':'land';
+  AP.on=true;AP.txt='';AP.done='';AP.ct=0;}
 export function apArrived(){ // main.js calls this from the travel handoff:
   if(AP.on){AP.mode='orbit';AP.lock=false;}} // arrive INTO orbit, not dirt
 
@@ -248,8 +253,9 @@ function apStep(dt,g){
     nose=closing>vTgt*1.1?vnorm([-ship.vel[0],-ship.vel[1],-ship.vel[2]]):dirT;
   }else if(AP.mode==='orbit'){ // stage: reach a circular parking orbit.
     // Gravity turn: climb radially while the tangential target ramps with
-    // altitude, then hold the ORBIT_R shell and trim to circular speed.
-    const G0=FLY.G*dr,vOrb=Math.sqrt(G0/ORBIT_R);
+    // altitude, then hold the orbitR() shell and trim to circular speed.
+    const OR=orbitR();
+    const G0=FLY.G*dr,vOrb=Math.sqrt(G0/OR);
     const vr=vdot(ship.vel,rd);
     let tg=[ship.vel[0]-rd[0]*vr,ship.vel[1]-rd[1]*vr,ship.vel[2]-rd[2]*vr];
     if(Math.hypot(tg[0],tg[1],tg[2])<5*dr){ // no drift yet: go where the nose points
@@ -257,24 +263,29 @@ function apStep(dt,g){
       tg=[ship.fwd[0]-fr*rd[0],ship.fwd[1]-fr*rd[1],ship.fwd[2]-fr*rd[2]];}
     if(Math.hypot(tg[0],tg[1],tg[2])<0.05)tg=vcross(rd,[0,1,0]);
     tg=vnorm(tg);
-    if(rl<ORBIT_R-0.03){
+    if(rl<OR-0.03){
       AP.ct=0;
-      const f=Math.max(0,(rl-1)/(ORBIT_R-1));
+      const f=Math.max(0,(rl-1)/(OR-1));
       vDes=[0,0,0];
       for(let i=0;i<3;i++)vDes[i]=rd[i]*28*dr*(1-0.6*f)+tg[i]*vOrb*f;
       AP.txt='climb · alt '+Math.max(0,((rl-restR(rd))/dr)|0);
     }else{
       vDes=[0,0,0];
-      for(let i=0;i<3;i++)vDes[i]=tg[i]*vOrb+rd[i]*(ORBIT_R-rl)*2;
+      for(let i=0;i<3;i++)vDes[i]=tg[i]*vOrb+rd[i]*(OR-rl)*2;
       AP.txt='circularize';
-      // "circular" is approximate here — the other body's tide (~6% of
-      // surface g) perturbs any orbit, so accept a near window, or a loose
-      // one once it has settled for a few seconds
+      // done = the COASTING ellipse clears the mountains. Periapsis is
+      // brutally sensitive to tangential speed (20% low at 2.1R already
+      // dips below the surface), so gate on the two-body peri directly:
+      // e from energy+angular momentum, peri = a(1-e) > ceiling + 6 blocks.
       AP.ct=(AP.ct||0)+dt;
       const vt=vdot(ship.vel,tg);
-      if((Math.abs(rl-ORBIT_R)<0.06&&Math.abs(vr)<6*dr&&
-          Math.abs(vt-vOrb)<0.2*vOrb)||
-         (AP.ct>8&&Math.abs(rl-ORBIT_R)<0.12&&Math.abs(vr)<8*dr)){
+      const sp2=ship.vel[0]**2+ship.vel[1]**2+ship.vel[2]**2;
+      const eps=0.5*sp2-G0/rl,hh=rl*vt;
+      const ecc=eps<0?Math.sqrt(Math.max(0,1+2*eps*hh*hh/(G0*G0))):1;
+      const sma=eps<0?-G0/(2*eps):0,peri=sma*(1-ecc),apo=sma*(1+ecc);
+      const wide=AP.ct>8;              // settle a while: accept a looser shell
+      if(eps<0&&peri>P.radius(P.SH)+6*dr&&apo<OR*1.5&&
+         Math.abs(rl-OR)<(wide?0.12:0.06)&&Math.abs(vr)<(wide?8:6)*dr){
         AP.on=false;AP.txt='';
         AP.done='✓ orbit — '+(AP.lock?'G: transfer':'T: lock target · G: land');}}
     nose=vnorm(vDes);
@@ -303,7 +314,7 @@ function apStep(dt,g){
   const F=ship.fwd,U=ship.up,sb=vnorm(vcross(F,U));
   const cl=v=>Math.max(-1,Math.min(1,v));
   return[cl(vdot(a,F)/TH),cl(vdot(a,sb)/TH),cl(vdot(a,U)/TH)];}
-export function stepShip(dt){
+export function stepShip(dt,map){
   dt=Math.min(dt,0.05);
   const P=world.P,dr=P.dr,KEY=move.KEY;
   let tf=move.joyY,ts=move.joyX,tu=0;
@@ -329,10 +340,19 @@ export function stepShip(dt){
   // it drives the same thrusters the keys do
   if(AP.on&&(tf||ts||tu||KEY.KeyB)){AP.on=false;AP.txt='';}
   if(AP.on)[tf,ts,tu]=apStep(dt,g);
+  // live-map burns (the mastery path): in map view W/S thrust PROGRADE/
+  // retro and space/shift radial, ignoring the nose — you fly the ellipse
+  // by instruments, watching Ap/Pe move. A/D do nothing there.
+  let BF=null,BU=null;
+  if(map&&!AP.on){
+    const sp0=Math.hypot(ship.vel[0],ship.vel[1],ship.vel[2]);
+    BF=sp0>1e-6?[ship.vel[0]/sp0,ship.vel[1]/sp0,ship.vel[2]/sp0]:ship.fwd;
+    BU=[ship.pos[0]/rl,ship.pos[1]/rl,ship.pos[2]/rl];
+    ts=0;}
   ship.thr=[tf,ts,tu];              // HUD thruster lights read actual demand
   const F=ship.fwd,U=ship.up,sb=vnorm(vcross(F,U)); // after apStep's aiming
   const a=[g[0],g[1],g[2]];
-  for(let i=0;i<3;i++)a[i]+=(F[i]*tf+sb[i]*ts+U[i]*tu)*TH;
+  for(let i=0;i<3;i++)a[i]+=((BF||F)[i]*tf+sb[i]*ts+(BU||U)[i]*tu)*TH;
   // B: match velocity — retro-burn against the planet-frame velocity,
   // clamped so it never overshoots zero
   if(KEY.KeyB){const sp=Math.hypot(ship.vel[0],ship.vel[1],ship.vel[2]);
@@ -363,4 +383,35 @@ export function stepShip(dt){
   // active world — main.js owns the save + regen + frame handoff
   if(Math.hypot(ship.pos[0]-C[0],ship.pos[1]-C[1],ship.pos[2]-C[2])<SYS.SWITCH_R*k)
     window.dispatchEvent(new CustomEvent('vs-travel'));
+}
+
+// ---- trajectory prediction (map view) ----
+// integrate the COASTING path (gravity only, no thrust) from the current
+// state: a polyline for the orbit arc, apoapsis/periapsis, and where it
+// ends — ground impact, the far body's SOI, or the time horizon.
+export function predictOrbit(maxT=90){
+  const P=world.P,dr=P.dr,G0=FLY.G*dr;
+  const{C,k}=SYS.otherLayout();
+  const bub=Math.hypot(C[0],C[1],C[2])+3;
+  const p=[...ship.pos],v=[...ship.vel];
+  const pts=[p[0],p[1],p[2]];
+  let apo=null,peri=null,apoR=-1,periR=1e9,hit=null,soi=false;
+  const DT=1/40;let n=0;
+  for(let t=0;t<maxT;t+=DT){
+    let rl=Math.hypot(p[0],p[1],p[2]);
+    const g1=G0/(rl*rl*rl);
+    const dx=[C[0]-p[0],C[1]-p[1],C[2]-p[2]];
+    const dO=Math.hypot(dx[0],dx[1],dx[2]);
+    const g2=G0*k*k/(dO*dO*dO);
+    for(let i=0;i<3;i++){v[i]+=(-p[i]*g1+dx[i]*g2)*DT;p[i]+=v[i]*DT;}
+    rl=Math.hypot(p[0],p[1],p[2]);
+    if(++n%5===0)pts.push(p[0],p[1],p[2]);
+    if(rl>apoR){apoR=rl;apo=[p[0],p[1],p[2]];}
+    if(rl<periR){periR=rl;peri=[p[0],p[1],p[2]];}
+    const rd=[p[0]/rl,p[1]/rl,p[2]/rl];
+    if(rl<restR(rd)){hit=[p[0],p[1],p[2]];pts.push(p[0],p[1],p[2]);break;}
+    if(dO<SYS.SWITCH_R*k){soi=true;pts.push(p[0],p[1],p[2]);break;}
+    if(rl>bub)break;
+  }
+  return{pts:new Float32Array(pts),apo,peri,apoR,periR,hit,soi};
 }
