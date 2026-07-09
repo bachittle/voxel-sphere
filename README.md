@@ -54,3 +54,11 @@ After an *intentional* worldgen change: `node make-reference.mjs` and commit
 the new `reference-v2.json`.
 
 Roadmap and design history: [GOAL.md](GOAL.md).
+
+## Credits
+
+Block textures: [Pixel Perfection](https://github.com/minetest-texture-packs/Pixel-Perfection)
+by Hugh "XSSheep" Rutland and contributors, licensed
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Inlined
+(base64) in `src/textures.js`; recolored/derived textures fall under the
+same license.
