@@ -60,10 +60,12 @@ export async function buildAtlas(gl){
     ctx.globalCompositeOperation='destination-over'; // force opaque; alpha via uAlpha
     ctx.fillStyle='#1a3d8f';ctx.fillRect(0,0,16,16);});
   at(T.LAVA,()=>D(imgs.lava_still));
-  at(T.COAL,()=>D(imgs.coal_ore));
-  at(T.IRON,()=>D(imgs.iron_ore));
-  at(T.GOLD,()=>D(imgs.gold_ore));
-  at(T.DIAMOND,()=>D(imgs.diamond_ore));
+  // The pack supplies ore markings as transparent overlays. Draw their stone
+  // base first so these remain solid block faces in the composed atlas.
+  at(T.COAL,()=>{D(imgs.stone);D(imgs.coal_ore);});
+  at(T.IRON,()=>{D(imgs.stone);D(imgs.iron_ore);});
+  at(T.GOLD,()=>{D(imgs.stone);D(imgs.gold_ore);});
+  at(T.DIAMOND,()=>{D(imgs.stone);D(imgs.diamond_ore);});
   at(T.GLASS,()=>D(imgs.glass));
   at(T.TORCH,()=>D(imgs.torch));
   at(T.BEDROCK,()=>D(imgs.bedrock));
