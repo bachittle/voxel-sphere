@@ -42,14 +42,17 @@ export async function buildAtlas(gl){
   const D=(img)=>ctx.drawImage(img,0,0,16,16,0,0,16,16); // frame 0 of strips
   at(T.GRASS_P,()=>D(imgs.grass_block_top));
   at(T.GRASS_F,()=>D(imgs.grass_block_top));
-  at(T.GSIDE_P,()=>D(imgs.grass_block_side));
-  at(T.GSIDE_F,()=>D(imgs.grass_block_side));
+  // Pixel Perfection's grass sides are overlays (transparent below the grass
+  // fringe), unlike the self-contained Minecraft textures used previously.
+  // Composite them over dirt so the atlas tile remains an opaque block face.
+  at(T.GSIDE_P,()=>{D(imgs.dirt);D(imgs.grass_block_side);});
+  at(T.GSIDE_F,()=>{D(imgs.dirt);D(imgs.grass_block_side);});
   at(T.DIRT,()=>D(imgs.dirt));
   at(T.STONE,()=>D(imgs.stone));
   at(T.SAND,()=>D(imgs.sand));
   at(T.GRAVEL,()=>D(imgs.gravel));
   at(T.SNOW,()=>D(imgs.snow));
-  at(T.GSNOW,()=>D(imgs.grass_block_snow));
+  at(T.GSNOW,()=>{D(imgs.dirt);D(imgs.grass_block_snow);});
   at(T.LOG,()=>D(imgs.oak_log));
   at(T.LOG_TOP,()=>D(imgs.oak_log_top));
   at(T.LEAF,()=>D(imgs.oak_leaves));
